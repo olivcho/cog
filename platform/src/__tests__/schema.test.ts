@@ -128,7 +128,12 @@ describe("platform database schema smoke test", () => {
     const envPath = path.join(tempDir, ".env");
     fs.writeFileSync(
       envPath,
-      '# comment\nDATABASE_URL="postgresql://user:pass@localhost:5432/app"\nSESSION_SECRET=abc\n',
+      [
+        "# comment",
+        'DATABASE_URL="file:./first.db"',
+        'DATABASE_URL="postgresql://user:pass@localhost:5432/app" # inline comment',
+        "SESSION_SECRET=abc",
+      ].join("\n"),
     );
 
     const emptyEnv: Record<string, string | undefined> = {};

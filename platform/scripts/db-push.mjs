@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse } from "dotenv";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const platformDir = path.resolve(currentDir, "..");
@@ -11,20 +12,8 @@ const rootEnvPath = path.join(workspaceRoot, ".env");
 const env = { ...process.env };
 
 if (fs.existsSync(rootEnvPath)) {
-  for (const rawLine of fs.readFileSync(rootEnvPath, "utf8").split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) continue;
-    const withoutExport = line.startsWith("export ") ? line.slice(7).trim() : line;
-    const eqIndex = withoutExport.indexOf("=");
-    if (eqIndex <= 0) continue;
-    const key = withoutExport.slice(0, eqIndex).trim();
-    let value = withoutExport.slice(eqIndex + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
+  const parsed = parse(fs.readFileSync(rootEnvPath, "utf8"));
+  for (const [key, value] of Object.entries(parsed)) {
     if (env[key] === undefined) {
       env[key] = value;
     }
