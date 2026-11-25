@@ -7,7 +7,6 @@ import {
   AuditLogPanel,
   FilterBar,
   FilterSelect,
-  Notice,
   SearchInput,
   SlaBadge,
   StatCard,
@@ -42,8 +41,8 @@ interface QueueStats {
 type Tab = "queue" | "audit";
 
 const TABS = [
-  { id: "queue", label: "Review Queue" },
-  { id: "audit", label: "Org Audit Log" },
+  { id: "queue", label: "Queue" },
+  { id: "audit", label: "Audit log" },
 ] as const;
 
 const STATUS_OPTIONS = [
@@ -130,20 +129,13 @@ export function KycWorkspace() {
 
   return (
     <AppShell
-      appName="KYC Review Queue"
+      appName="KYC review"
       tabs={TABS}
       activeTab={activeTab}
       onTabChange={(tab) => {
         setActiveTab(tab);
         setSelectedCaseId(null);
       }}
-      banner={
-        user.role === "auditor" ? (
-          <Notice label="Auditor session">
-            Read-only access across all KYC cases and append-only audit logs.
-          </Notice>
-        ) : null
-      }
     >
       {activeTab === "audit" ? (
         <AuditLogPanel />
