@@ -119,7 +119,11 @@ export function ModelTable({
                 onKeyDown={
                   onRowClick
                     ? (e) => {
-                        if (e.key === "Enter") onRowClick(record);
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onRowClick(record);
+                        }
                       }
                     : undefined
                 }
