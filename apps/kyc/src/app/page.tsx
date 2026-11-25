@@ -1,4 +1,4 @@
-import { HIGH_RISK_THRESHOLD, ROLES } from "@internal/platform";
+import { HIGH_RISK_THRESHOLD, ROLES } from "@internal/platform/types";
 
 export default function HomePage() {
   return (

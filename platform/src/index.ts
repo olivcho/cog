@@ -9,3 +9,4 @@ export * from "./auth";
 export * from "./permissions";
 export * from "./audit";
 export * from "./approvals";
+export * from "./models";
