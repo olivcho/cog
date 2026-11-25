@@ -11,7 +11,7 @@ export const kycCaseModel =
     resource: "kyc_case",
     defaultSort: { field: "slaDueAt", direction: "asc" },
     searchableFields: ["caseNumber", "customerName", "customerEmail", "country"],
-    editableFields: ["summary", "status", "assigneeId"],
+    editableFields: ["summary", "status"],
     fields: [
       { key: "caseNumber", label: "Case #", type: "string", sortable: true },
       { key: "customerName", label: "Customer", type: "string", sortable: true },

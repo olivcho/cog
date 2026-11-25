@@ -3,7 +3,7 @@ import { getLatestApprovalForEntity } from "@internal/platform/approvals";
 import { getEntityAuditTrail } from "@internal/platform/audit";
 import { getPrisma } from "@internal/platform/db";
 import { assertCan, can } from "@internal/platform/permissions";
-import { handleApiError } from "@/lib/api-errors";
+import { handleApiError } from "@internal/platform/http";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";

@@ -1,20 +1,3 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@internal/platform";
+export { healthHandler as GET } from "@internal/platform/http";
 
 export const dynamic = "force-dynamic";
-
-export async function GET() {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    return NextResponse.json({ status: "ok", database: "connected" });
-  } catch (error) {
-    console.error("Health check database connectivity error:", error);
-    return NextResponse.json(
-      {
-        status: "error",
-        database: "disconnected",
-      },
-      { status: 500 },
-    );
-  }
-}
