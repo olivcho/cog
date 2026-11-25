@@ -2,7 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { HIGH_RISK_THRESHOLD, type SessionUser } from "@internal/platform/types";
-import { SlaBadge } from "@internal/platform/ui";
+import { AuditTrail, RiskScore } from "@internal/platform/models/ui";
+import {
+  Button,
+  Meta,
+  Notice,
+  Section,
+  Tag,
+  formatDateTime,
+  humanize,
+  inputClass,
+  labelClass,
+  selectClass,
+  SlaBadge,
+} from "@internal/platform/ui";
 
 export interface CaseDocument {
   id: string;
@@ -82,15 +95,6 @@ export interface CaseDetailPayload {
   };
 }
 
-const UTC_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "UTC",
-  timeZoneName: "short",
-});
-
 function safeParseJson(raw: string): Record<string, string> {
   try {
     return JSON.parse(raw) as Record<string, string>;
@@ -125,7 +129,7 @@ export function CaseDetailPanel({
       const res = await fetch(`/api/cases/${caseId}`, { cache: "no-store" });
       const data = (await res.json()) as CaseDetailPayload & { error?: string };
       if (!res.ok) {
-        setError(data.error ?? "Failed to load case");
+        setError(data.error ?? "We couldn't load this case.");
         return;
       }
       setDetail(data);
@@ -135,7 +139,7 @@ export function CaseDetailPanel({
           : (data.kycCase.documents[0]?.id ?? null),
       );
     } catch {
-      setError("Network error while loading case");
+      setError("We couldn't reach the server. Try again.");
     } finally {
       setLoading(false);
     }
@@ -156,13 +160,13 @@ export function CaseDetailPanel({
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        setActionError(data.error ?? "Assignment failed");
+        setActionError(data.error ?? "We couldn't assign this case.");
         return;
       }
       await loadDetail();
       onMutated();
     } catch {
-      setActionError("Network error while assigning case");
+      setActionError("We couldn't reach the server. Try again.");
     } finally {
       setSubmitting(false);
     }
@@ -173,7 +177,7 @@ export function CaseDetailPanel({
   ) {
     setActionError(null);
     if (!reason.trim()) {
-      setActionError("Please enter a decision reason for the audit trail.");
+      setActionError("Add a reason before you decide.");
       return;
     }
     setSubmitting(true);
@@ -185,32 +189,28 @@ export function CaseDetailPanel({
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        setActionError(data.error ?? "Decision failed");
+        setActionError(data.error ?? "We couldn't record this decision.");
         return;
       }
       setReason("");
       await loadDetail();
       onMutated();
     } catch {
-      setActionError("Network error while recording decision");
+      setActionError("We couldn't reach the server. Try again.");
     } finally {
       setSubmitting(false);
     }
   }
 
   if (loading && !detail) {
-    return (
-      <div className="rounded-xl border border-slate-200 bg-white p-8 text-sm text-slate-500">
-        Loading case details...
-      </div>
-    );
+    return <p className="py-12 text-[13px] text-ink-muted">Loading case…</p>;
   }
 
   if (error || !detail) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-        {error ?? "Case unavailable"}
-      </div>
+      <Notice label="Error" tone="danger">
+        {error ?? "This case is unavailable."}
+      </Notice>
     );
   }
 
@@ -219,411 +219,378 @@ export function CaseDetailPanel({
   const approvedSteps =
     approvalRequest?.steps.filter((s) => s.decision === "approved") ?? [];
   const requiredApprovals = isHighRisk ? 2 : 1;
+  const hasPepMatch = kycCase.sanctionsMatches.some(
+    (m) => m.category.toLowerCase() === "pep",
+  );
+  const isClosed = kycCase.status === "approved" || kycCase.status === "rejected";
   const selectedDoc =
     kycCase.documents.find((d) => d.id === selectedDocId) ??
     kycCase.documents[0] ??
     null;
 
+  const approveLabel =
+    isHighRisk && approvedSteps.length === 0
+      ? "Submit first sign-off"
+      : isHighRisk && approvedSteps.length === 1
+        ? "Approve with second sign-off"
+        : "Approve";
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-12">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-        >
-          ← Back to Queue
-        </button>
+        <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2.5">
+          ← Queue
+        </Button>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {capabilities.canClaim ? (
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => void handleAssign(currentUser.id)}
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-            >
-              Claim Case
-            </button>
-          ) : null}
-
+        <div className="flex flex-wrap items-center gap-3">
           {capabilities.canReassign ? (
-            <label className="flex items-center gap-2 text-xs text-slate-600">
-              <span>Assign:</span>
+            <label className="flex items-center gap-2 text-[13px] text-ink-muted">
+              Assignee
               <select
                 disabled={submitting}
                 value={kycCase.assigneeId ?? ""}
                 onChange={(e) =>
                   void handleAssign(e.target.value ? e.target.value : null)
                 }
-                className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900"
+                className={selectClass}
               >
                 <option value="">Unassigned</option>
                 {reviewers.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.name} ({r.role.replace("_", " ")})
+                    {r.name} · {humanize(r.role)}
                   </option>
                 ))}
               </select>
             </label>
           ) : null}
+
+          {capabilities.canClaim ? (
+            <Button
+              size="sm"
+              disabled={submitting}
+              onClick={() => void handleAssign(currentUser.id)}
+            >
+              Claim
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      {/* Case Summary Header */}
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs font-semibold text-slate-500">
-                {kycCase.caseNumber}
-              </span>
-              <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
-                {kycCase.status.replace(/_/g, " ")}
-              </span>
-              <SlaBadge
-                dueAt={kycCase.slaDueAt}
-                closed={kycCase.status === "approved" || kycCase.status === "rejected"}
-              />
-            </div>
-            <h2 className="mt-2 text-xl font-bold text-slate-900">
-              {kycCase.customerName}
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              {kycCase.customerEmail} · {kycCase.country} ·{" "}
-              {kycCase.accountType} · Assignee:{" "}
-              <strong className="text-slate-700">{kycCase.assigneeName}</strong>
-            </p>
-            {kycCase.summary ? (
-              <p className="mt-3 max-w-3xl text-sm text-slate-700">
-                {kycCase.summary}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-right">
-            <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-              Risk Score
-            </div>
-            <div
-              className={`mt-0.5 text-2xl font-bold tabular-nums ${
-                isHighRisk
-                  ? "text-red-600"
-                  : kycCase.riskScore >= 40
-                    ? "text-amber-600"
-                    : "text-emerald-600"
-              }`}
-            >
-              {kycCase.riskScore} / 100
-            </div>
-            <div className="mt-0.5 text-[11px] text-slate-500">
-              {isHighRisk
-                ? `Two-person sign-off (>=${HIGH_RISK_THRESHOLD})`
-                : "Single-approver eligible"}
-            </div>
-          </div>
+      <header className="space-y-4">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <Meta>{kycCase.caseNumber}</Meta>
+          <span className="text-ink-faint">·</span>
+          <SlaBadge
+            dueAt={kycCase.slaDueAt}
+            closed={kycCase.status === "approved" || kycCase.status === "rejected"}
+            showDueDate
+          />
         </div>
-      </section>
+        <h1 className="text-[32px] leading-[1.1] tracking-[-0.02em]">
+          {kycCase.customerName}
+        </h1>
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
+          <Tag tone={kycCase.status === "escalated" ? "danger" : isClosed ? "muted" : "default"}>
+            {humanize(kycCase.status)}
+          </Tag>
+          {isHighRisk ? <Tag tone="danger">High risk</Tag> : null}
+          {hasPepMatch ? <Tag tone="danger">PEP</Tag> : null}
+          {isHighRisk ? <Tag>2-person review</Tag> : null}
+        </div>
+      </header>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Document Viewer */}
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-semibold text-slate-900">
-              Document Viewer ({kycCase.documents.length})
-            </h3>
-            <span className="text-xs text-slate-500">OCR Extraction</span>
-          </div>
+      <Section index={1} title="Customer">
+        <dl className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-3 lg:grid-cols-5">
+          {(
+            [
+              ["Risk score", <RiskScore key="r" score={kycCase.riskScore} />],
+              ["Email", <span key="e" className="font-mono text-xs">{kycCase.customerEmail}</span>],
+              ["Country", <span key="c" className="font-mono text-xs">{kycCase.country}</span>],
+              ["Account", humanize(kycCase.accountType)],
+              ["Assignee", kycCase.assigneeName],
+            ] as const
+          ).map(([label, value]) => (
+            <div key={label}>
+              <dt>
+                <Meta>{label}</Meta>
+              </dt>
+              <dd className="mt-1 text-[13px]">{value}</dd>
+            </div>
+          ))}
+        </dl>
+        {kycCase.summary ? (
+          <p className="mt-6 max-w-[65ch] text-sm leading-relaxed">
+            {kycCase.summary}
+          </p>
+        ) : null}
+      </Section>
 
-          {kycCase.documents.length === 0 ? (
-            <p className="py-6 text-sm text-slate-500">
-              No documents uploaded for this case.
-            </p>
-          ) : (
-            <div className="mt-4 space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {kycCase.documents.map((doc) => (
+      <Section
+        index={2}
+        title="Documents"
+        aside={<Meta>
+            {kycCase.documents.length}{" "}
+            {kycCase.documents.length === 1 ? "file" : "files"}
+          </Meta>}
+      >
+        {kycCase.documents.length === 0 || !selectedDoc ? (
+          <p className="text-[13px] text-ink-muted">No documents uploaded.</p>
+        ) : (
+          <div>
+            <div
+              role="tablist"
+              aria-label="Documents"
+              onKeyDown={(e) => {
+                const step =
+                  e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+                if (step === 0) return;
+                e.preventDefault();
+                const docs = kycCase.documents;
+                const current = docs.findIndex((d) => d.id === selectedDoc.id);
+                const next = docs[(current + step + docs.length) % docs.length];
+                if (!next) return;
+                setSelectedDocId(next.id);
+                document.getElementById(`doc-tab-${next.id}`)?.focus();
+              }}
+              className="flex flex-wrap gap-6 border-b border-hairline text-[13px]"
+            >
+              {kycCase.documents.map((doc) => {
+                const selected = selectedDoc.id === doc.id;
+                return (
                   <button
                     key={doc.id}
+                    id={`doc-tab-${doc.id}`}
                     type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    aria-controls="doc-panel"
+                    tabIndex={selected ? 0 : -1}
                     onClick={() => setSelectedDocId(doc.id)}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-                      selectedDoc?.id === doc.id
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                    className={`-mb-px pb-2 transition-colors ${
+                      selected
+                        ? "border-b border-ink text-ink"
+                        : "text-ink-muted hover:text-ink"
                     }`}
                   >
-                    {doc.docType.replace(/_/g, " ")}
+                    {humanize(doc.docType)}
                   </button>
-                ))}
-              </div>
-
-              {selectedDoc ? (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs font-medium text-slate-800">
-                      {selectedDoc.fileName}
-                    </span>
-                    <span
-                      className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-                        selectedDoc.status === "verified"
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                          : selectedDoc.status === "flagged"
-                            ? "border-red-200 bg-red-50 text-red-700"
-                            : "border-amber-200 bg-amber-50 text-amber-800"
-                      }`}
-                    >
-                      {selectedDoc.status}
-                    </span>
-                  </div>
-
-                  <dl className="mt-3 grid grid-cols-1 gap-2 border-t border-slate-200 pt-3 sm:grid-cols-2">
-                    {Object.entries(safeParseJson(selectedDoc.extractedJson)).map(
-                      ([k, v]) => (
-                        <div key={k}>
-                          <dt className="text-[11px] font-medium uppercase text-slate-500">
-                            {k.replace(/([A-Z])/g, " $1")}
-                          </dt>
-                          <dd className="text-xs font-medium text-slate-900">
-                            {String(v)}
-                          </dd>
-                        </div>
-                      ),
-                    )}
-                  </dl>
-                </div>
-              ) : null}
+                );
+              })}
             </div>
-          )}
-        </section>
 
-        {/* Mock Sanctions & PEP Matches */}
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-semibold text-slate-900">
-              Sanctions &amp; PEP Screening ({kycCase.sanctionsMatches.length})
-            </h3>
-            <span className="text-xs text-slate-500">OFAC · EU · UN · PEP</span>
-          </div>
-
-          {kycCase.sanctionsMatches.length === 0 ? (
-            <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/70 p-4 text-xs text-emerald-800">
-              No sanctions, PEP, or adverse media hits detected.
-            </div>
-          ) : (
-            <div className="mt-4 space-y-3">
-              {kycCase.sanctionsMatches.map((match) => (
-                <div
-                  key={match.id}
-                  className="rounded-lg border border-slate-200 p-3.5"
+            <div
+              id="doc-panel"
+              role="tabpanel"
+              aria-labelledby={`doc-tab-${selectedDoc.id}`}
+              className="mt-4 border border-hairline-strong bg-white/60 p-4"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="font-mono text-xs">{selectedDoc.fileName}</span>
+                <Tag
+                  tone={
+                    selectedDoc.status === "flagged"
+                      ? "danger"
+                      : selectedDoc.status === "verified"
+                        ? "muted"
+                        : "default"
+                  }
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="rounded bg-slate-900 px-2 py-0.5 font-mono text-[11px] font-semibold text-white">
-                        {match.listName}
-                      </span>
-                      <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
-                        {match.category.toUpperCase()}
-                      </span>
+                  {humanize(selectedDoc.status)}
+                </Tag>
+              </div>
+              <dl className="mt-4 grid grid-cols-1 gap-x-8 gap-y-3 border-t border-hairline pt-4 sm:grid-cols-2">
+                {Object.entries(safeParseJson(selectedDoc.extractedJson)).map(
+                  ([k, v]) => (
+                    <div key={k} className="grid grid-cols-[140px_1fr] gap-3">
+                      <dt>
+                        <Meta>{k.replace(/([A-Z])/g, " $1").toLowerCase()}</Meta>
+                      </dt>
+                      <dd className="font-mono text-xs">{String(v)}</dd>
                     </div>
-                    <span
-                      className={`text-xs font-bold tabular-nums ${
-                        match.matchScore >= 80
-                          ? "text-red-600"
-                          : match.matchScore >= 60
-                            ? "text-amber-700"
-                            : "text-slate-600"
-                      }`}
-                    >
-                      {match.matchScore}% match
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm font-semibold text-slate-900">
-                    {match.matchedName}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-600">{match.details}</p>
-                  <p className="mt-2 text-[11px] font-medium text-slate-500">
-                    Disposition:{" "}
-                    <span className="text-slate-800">
-                      {match.disposition.replace(/_/g, " ")}
-                    </span>
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-
-      {/* Approval State Machine & Decision Panel */}
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-900">
-              Approval Workflow ({approvedSteps.length} / {requiredApprovals}{" "}
-              approvals)
-            </h3>
-            <p className="text-xs text-slate-500">
-              Enforced via <code className="font-mono">can(user, action, resource)</code> and the generic platform approvals state machine.
-            </p>
-          </div>
-        </div>
-
-        {approvalRequest && approvalRequest.steps.length > 0 ? (
-          <ol className="mt-4 space-y-2">
-            {approvalRequest.steps.map((step) => (
-              <li
-                key={step.id}
-                className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs"
-              >
-                <div>
-                  <span className="font-semibold text-slate-900">
-                    Step {step.stepNumber}: {step.decision.toUpperCase()}
-                  </span>{" "}
-                  by <span className="font-medium">{step.actor.name}</span> (
-                  <span className="font-mono text-slate-600">
-                    {step.actor.role}
-                  </span>
-                  )
-                  <p className="mt-0.5 text-slate-600">{step.reason}</p>
-                </div>
-                <time className="tabular-nums text-slate-500">
-                  {UTC_FORMATTER.format(new Date(step.createdAt))}
-                </time>
-              </li>
-            ))}
-          </ol>
-        ) : null}
-
-        {currentUser.role === "auditor" ? (
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700">
-            <strong>Read-Only Auditor View:</strong> Decision actions are hidden for auditors and rejected with <code className="font-mono">403 Forbidden</code> at the API layer.
-          </div>
-        ) : kycCase.status === "approved" || kycCase.status === "rejected" ? (
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700">
-            This case is finalized (<strong>{kycCase.status}</strong>). No further transitions are permitted.
-          </div>
-        ) : (
-          <div className="mt-4 space-y-3">
-            {capabilities.isSelfApprovalBlocked ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-                <strong>Separation of duties:</strong> You submitted Step 1 approval. A different <code className="font-mono">senior_reviewer</code> or <code className="font-mono">compliance_admin</code> must submit Step 2.
-              </div>
-            ) : !capabilities.canApprove &&
-              kycCase.status === "pending_second_approval" ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-                <strong>High-risk Step 2 restricted:</strong> Requires <code className="font-mono">senior_reviewer</code> or <code className="font-mono">compliance_admin</code>.
-              </div>
-            ) : null}
-
-            <div>
-              <label
-                htmlFor="decision-reason"
-                className="block text-xs font-medium text-slate-700"
-              >
-                Decision Reason (required, recorded in append-only audit log)
-              </label>
-              <textarea
-                id="decision-reason"
-                rows={2}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Document evidence reviewed, sanctions disposition, or escalation rationale..."
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-900 focus:outline-none"
-              />
-            </div>
-
-            {actionError ? (
-              <p
-                role="alert"
-                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
-              >
-                {actionError}
-              </p>
-            ) : null}
-
-            <div className="flex flex-wrap gap-2">
-              {capabilities.canApprove ? (
-                <button
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => void handleDecision("approved")}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-                >
-                  {isHighRisk && approvedSteps.length === 0
-                    ? "Submit 1st Sign-Off"
-                    : isHighRisk && approvedSteps.length === 1
-                      ? "Submit 2nd Sign-Off (Final Approve)"
-                      : "Approve Case"}
-                </button>
-              ) : null}
-
-              {capabilities.canEscalate ? (
-                <button
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => void handleDecision("escalated")}
-                  className="rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
-                >
-                  Escalate
-                </button>
-              ) : null}
-
-              {capabilities.canReject ? (
-                <button
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => void handleDecision("rejected")}
-                  className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-                >
-                  Reject Case
-                </button>
-              ) : null}
+                  ),
+                )}
+              </dl>
             </div>
           </div>
         )}
-      </section>
+      </Section>
 
-      {/* Per-Case Append-Only Audit Trail */}
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h3 className="text-sm font-semibold text-slate-900">
-            Per-Case Append-Only Audit Trail ({auditTrail.length})
-          </h3>
-          <span className="text-xs text-slate-500">Immutable · Auto-logged</span>
-        </div>
-
-        {auditTrail.length === 0 ? (
-          <p className="mt-4 text-xs text-slate-500">
-            No audit events recorded yet.
+      <Section
+        index={3}
+        title="Screening"
+        aside={<Meta>OFAC · EU · UN · PEP</Meta>}
+      >
+        {kycCase.sanctionsMatches.length === 0 ? (
+          <p className="text-[13px] text-ink-muted">
+            No matches on OFAC, EU, UN, or PEP lists.
           </p>
         ) : (
-          <ol className="mt-3 divide-y divide-slate-100">
-            {auditTrail.map((entry) => (
-              <li
-                key={entry.id}
-                className="flex flex-wrap items-baseline justify-between gap-2 py-3 text-xs"
-              >
-                <div>
-                  <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono font-semibold text-slate-800">
-                    {entry.action}
-                  </span>{" "}
-                  <span className="text-slate-500">by</span>{" "}
-                  <span className="font-mono text-slate-700">
-                    {entry.actorEmail}
-                  </span>
-                  {entry.reason ? (
-                    <p className="mt-1 text-slate-600">{entry.reason}</p>
-                  ) : null}
-                </div>
-                <time className="tabular-nums text-slate-500">
-                  {UTC_FORMATTER.format(new Date(entry.createdAt))}
-                </time>
-              </li>
-            ))}
-          </ol>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-[13px]">
+              <thead className="border-b border-hairline-strong text-xs text-ink-muted">
+                <tr>
+                  <th className="py-2 pr-3 font-normal">List</th>
+                  <th className="px-3 py-2 font-normal">Matched name</th>
+                  <th className="px-3 py-2 font-normal">Category</th>
+                  <th className="px-3 py-2 text-right font-normal">Score</th>
+                  <th className="py-2 pl-3 font-normal">Disposition</th>
+                </tr>
+              </thead>
+              <tbody>
+                {kycCase.sanctionsMatches.map((match) => (
+                  <tr key={match.id} className="border-b border-hairline align-baseline">
+                    <td className="py-2.5 pr-3 font-mono text-xs whitespace-nowrap">
+                      {match.listName}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div>{match.matchedName}</div>
+                      <div className="mt-0.5 max-w-[60ch] text-ink-muted">
+                        {match.details}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <Tag tone="muted">{match.category}</Tag>
+                    </td>
+                    <td
+                      className={`px-3 py-2.5 text-right font-mono tabular-nums ${
+                        match.matchScore >= 80 ? "text-danger" : ""
+                      }`}
+                    >
+                      {match.matchScore}%
+                    </td>
+                    <td className="py-2.5 pl-3 whitespace-nowrap">
+                      {humanize(match.disposition)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </section>
+      </Section>
+
+      <Section
+        index={4}
+        title="Decision"
+        aside={
+          <Meta>
+            {approvedSteps.length} of {requiredApprovals}{" "}
+            {requiredApprovals === 1 ? "approval" : "approvals"}
+          </Meta>
+        }
+      >
+        <div className="max-w-[720px] space-y-5">
+          {approvalRequest && approvalRequest.steps.length > 0 ? (
+            <ol className="border-t border-hairline">
+              {approvalRequest.steps.map((step) => (
+                <li
+                  key={step.id}
+                  className="grid grid-cols-1 gap-x-6 gap-y-1 border-b border-hairline py-2.5 font-mono text-xs sm:grid-cols-[136px_1fr]"
+                >
+                  <time className="tabular-nums text-ink-muted">
+                    {formatDateTime(step.createdAt)}
+                  </time>
+                  <div>
+                    <span>
+                      {step.actor.name} {step.decision}
+                    </span>
+                    <span className="text-ink-muted">
+                      {" "}
+                      — step {step.stepNumber} —{" "}
+                      {step.actor.role}
+                    </span>
+                    <p className="mt-1 font-sans text-[13px] text-ink-muted">
+                      {step.reason}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : null}
+
+          {currentUser.role === "auditor" ? (
+            <Notice label="Read-only">Auditors can’t make decisions.</Notice>
+          ) : isClosed ? (
+            <Notice label="Closed">
+              This case was {kycCase.status}. No further changes are possible.
+            </Notice>
+          ) : (
+            <>
+              {capabilities.isSelfApprovalBlocked ? (
+                <Notice label="Second reviewer">
+                  You gave the first sign-off. A different reviewer must approve.
+                </Notice>
+              ) : !capabilities.canApprove &&
+                kycCase.status === "pending_second_approval" ? (
+                <Notice label="Second reviewer">
+                  A senior reviewer or compliance admin must give the second sign-off.
+                </Notice>
+              ) : null}
+
+              <div>
+                <label htmlFor="decision-reason" className={labelClass}>
+                  Reason
+                </label>
+                <textarea
+                  id="decision-reason"
+                  rows={3}
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="What you reviewed and why"
+                  className={inputClass}
+                />
+              </div>
+
+              {actionError ? (
+                <div role="alert">
+                  <Notice label="Error" tone="danger">
+                    {actionError}
+                  </Notice>
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap gap-2">
+                {capabilities.canApprove ? (
+                  <Button
+                    variant="primary"
+                    disabled={submitting}
+                    onClick={() => void handleDecision("approved")}
+                  >
+                    {approveLabel}
+                  </Button>
+                ) : null}
+                {capabilities.canEscalate ? (
+                  <Button
+                    disabled={submitting}
+                    onClick={() => void handleDecision("escalated")}
+                  >
+                    Escalate
+                  </Button>
+                ) : null}
+                {capabilities.canReject ? (
+                  <Button
+                    variant="danger"
+                    disabled={submitting}
+                    onClick={() => void handleDecision("rejected")}
+                  >
+                    Reject
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          )}
+        </div>
+      </Section>
+
+      <Section
+        index={5}
+        title="Audit trail"
+        aside={<Meta>
+            {auditTrail.length} {auditTrail.length === 1 ? "event" : "events"}
+          </Meta>}
+      >
+        <AuditTrail entries={auditTrail} />
+      </Section>
     </div>
   );
 }
