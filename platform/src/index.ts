@@ -5,3 +5,5 @@ export {
   prisma,
   resolveDatabaseUrl,
 } from "./db/client";
+export * from "./auth";
+export * from "./permissions";

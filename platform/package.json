@@ -6,6 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./db": "./src/db/client.ts",
+    "./auth": "./src/auth/index.ts",
+    "./permissions": "./src/permissions/index.ts",
     "./types": "./src/types.ts"
   },
   "scripts": {
