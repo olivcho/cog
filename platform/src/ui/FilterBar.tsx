@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { selectClass } from "./primitives";
 
 export interface FilterOption {
   value: string;
@@ -7,9 +8,7 @@ export interface FilterOption {
 
 export function FilterBar({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-      {children}
-    </div>
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-3">{children}</div>
   );
 }
 
@@ -17,18 +16,21 @@ export function SearchInput({
   value,
   onChange,
   placeholder,
+  label = "Search",
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  label?: string;
 }) {
   return (
     <input
       type="search"
+      aria-label={label}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="min-w-[220px] flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-900 focus:border-slate-900 focus:outline-none"
+      className={`${selectClass} w-56 placeholder:text-ink-faint`}
     />
   );
 }
@@ -50,7 +52,7 @@ export function FilterSelect({
       aria-label={label}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800"
+      className={selectClass}
     >
       {options.map((opt) => (
         <option key={opt.value} value={opt.value}>

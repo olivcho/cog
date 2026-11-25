@@ -2,15 +2,19 @@ import type { ReactNode } from "react";
 
 export type StatTone = "default" | "warning" | "danger" | "danger-subtle";
 
-const TONES: Record<StatTone, { card: string; label: string; value: string }> = {
-  default: { card: "border-slate-200 bg-white", label: "text-slate-500", value: "text-slate-900" },
-  warning: { card: "border-amber-200 bg-amber-50/50", label: "text-amber-800", value: "text-amber-900" },
-  danger: { card: "border-red-200 bg-red-50/40", label: "text-red-700", value: "text-red-700" },
-  "danger-subtle": { card: "border-red-200 bg-white", label: "text-slate-500", value: "text-red-600" },
+const VALUE_TONE: Record<StatTone, string> = {
+  default: "text-ink",
+  warning: "text-ink",
+  danger: "text-danger",
+  "danger-subtle": "text-danger",
 };
 
 export function StatGrid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{children}</div>;
+  return (
+    <dl className="flex flex-wrap gap-x-10 gap-y-2 border-y border-hairline py-3 text-[13px]">
+      {children}
+    </dl>
+  );
 }
 
 export function StatCard({
@@ -22,11 +26,10 @@ export function StatCard({
   value: ReactNode;
   tone?: StatTone;
 }) {
-  const t = TONES[tone];
   return (
-    <div className={`rounded-xl border p-4 shadow-xs ${t.card}`}>
-      <div className={`text-xs font-medium ${t.label}`}>{label}</div>
-      <div className={`mt-1 text-2xl font-bold tabular-nums ${t.value}`}>{value}</div>
+    <div className="flex items-baseline gap-2">
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className={`font-mono tabular-nums ${VALUE_TONE[tone]}`}>{value}</dd>
     </div>
   );
 }
