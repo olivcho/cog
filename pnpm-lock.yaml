@@ -76,12 +76,18 @@ importers:
       '@types/node':
         specifier: ^22.18.0
         version: 22.20.7
+      '@types/react':
+        specifier: ^19.1.13
+        version: 19.3.3
       eslint:
         specifier: ^9.35.0
         version: 9.39.5(jiti@2.7.0)
       prisma:
         specifier: ^6.16.2
         version: 6.19.3(typescript@5.9.3)
+      react:
+        specifier: ^19.1.0
+        version: 19.3.1
       typescript:
         specifier: ^5.8.2
         version: 5.9.3

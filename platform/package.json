@@ -10,7 +10,17 @@
     "./permissions": "./src/permissions/index.ts",
     "./audit": "./src/audit/index.ts",
     "./approvals": "./src/approvals/index.ts",
+    "./models": "./src/models/index.ts",
+    "./models/ui": "./src/models/ui/index.ts",
     "./types": "./src/types.ts"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -27,8 +37,10 @@
   "devDependencies": {
     "@eslint/js": "^9.35.0",
     "@types/node": "^22.18.0",
+    "@types/react": "^19.1.13",
     "eslint": "^9.35.0",
     "prisma": "^6.16.2",
+    "react": "^19.1.0",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.44.0",
     "vitest": "^3.2.4"
