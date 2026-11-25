@@ -98,6 +98,7 @@ export async function POST(request: Request) {
     );
   }
 
+  ipLimiter.release(ipKey);
   credentialLimiter.reset(credentialKey);
   const session = await createSession(prisma, user.id);
   const response = NextResponse.json({ user }, { status: 200 });

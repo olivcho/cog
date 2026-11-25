@@ -63,6 +63,16 @@ export class LoginRateLimiter {
     return { allowed: true, retryAfterSeconds: 0 };
   }
 
+  release(rawKey: string): void {
+    const key = this.normalizeKey(rawKey);
+    const existing = this.windows.get(key);
+    if (!existing) return;
+    existing.attempts.pop();
+    if (existing.attempts.length === 0) {
+      this.windows.delete(key);
+    }
+  }
+
   reset(rawKey: string): void {
     this.windows.delete(this.normalizeKey(rawKey));
   }

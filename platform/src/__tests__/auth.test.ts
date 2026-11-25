@@ -132,6 +132,10 @@ describe("platform identity & sessions", () => {
     // Allowed again once first attempt exits the window.
     expect(limiter.consume(key, t0 + 60_001).allowed).toBe(true);
 
+    // Release refunds a single slot (e.g. successful login does not burn shared IP quota).
+    limiter.release(key);
+    expect(limiter.consume(key, t0 + 62_000).allowed).toBe(true);
+
     // Explicit reset clears the bucket immediately.
     limiter.reset(key);
     expect(limiter.consume(key, t0 + 62_000).allowed).toBe(true);
