@@ -175,13 +175,13 @@ export function LoginView({
                     <span className="min-w-0">
                       <span className="flex flex-wrap items-baseline gap-x-3">
                         <span className="text-sm">{persona.name}</span>
-                        <Meta>{persona.email}</Meta>
+                        <Meta className="break-all">{persona.email}</Meta>
                       </span>
                       <span className="mt-0.5 block text-[13px] text-ink-muted">
                         {ROLE_SUMMARY[persona.role]}
                       </span>
                     </span>
-                    <span className="flex items-baseline gap-4">
+                    <span className="flex flex-col items-end gap-1 sm:flex-row sm:items-baseline sm:gap-4">
                       <Tag tone="muted">{humanize(persona.role)}</Tag>
                       <span className="w-[72px] text-right text-[13px] text-ink-muted group-hover:text-ink">
                         {loadingEmail === persona.email
