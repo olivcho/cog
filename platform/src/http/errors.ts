@@ -12,5 +12,6 @@ export function handleApiError(err: unknown): Response {
   ) {
     return Response.json({ error: err.message }, { status: err.statusCode });
   }
+  console.error("Unhandled API error:", err);
   return Response.json({ error: "Internal server error" }, { status: 500 });
 }
