@@ -15,7 +15,8 @@
     "./models/ui": "./src/models/ui/index.ts",
     "./types": "./src/types.ts",
     "./http": "./src/http/index.ts",
-    "./ui": "./src/ui/index.ts"
+    "./ui": "./src/ui/index.ts",
+    "./ui/theme.css": "./src/ui/theme.css"
   },
   "peerDependencies": {
     "react": "^19.0.0"

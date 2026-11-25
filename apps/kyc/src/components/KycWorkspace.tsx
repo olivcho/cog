@@ -139,7 +139,7 @@ export function KycWorkspace() {
       }}
       banner={
         user.role === "auditor" ? (
-          <Notice title="Auditor Session">
+          <Notice label="Auditor session">
             Read-only access across all KYC cases and append-only audit logs.
           </Notice>
         ) : null

@@ -1,12 +1,4 @@
 @import "tailwindcss";
+@import "@internal/platform/ui/theme.css";
+
 @source "../../../../platform/src";
-
-:root {
-  color-scheme: light;
-}
-
-body {
-  background-color: #f8f9fa;
-  color: #111827;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
