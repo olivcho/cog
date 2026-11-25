@@ -1,23 +1,38 @@
-# Internal Tools Platform — KYC Review Queue Prototype
+# Internal Tools Platform: KYC Review Queue
 
-A working proof-of-concept demonstrating how a Series C fintech engineering team can use **Devin Cloud** to build a reusable horizontal internal-tools platform (`platform/`) and its first vertical application (`apps/kyc/`) with full Git, test, CI, and PR-review rigor.
+A shared platform for building internal tools, and a KYC review queue built on it. The platform provides login, roles, an audit log, approvals, data models and UI.
 
-## Repository Layout
+## Two layers
 
-- **`platform/` (`@internal/platform`)** — Reusable horizontal primitives shared by all internal tools:
-  - **Identity (`platform/src/auth/`)**: Salted `scrypt` password hashing, DB-backed sessions (`sha256` token hash), HMAC-SHA256 signed HTTP-only cookies, and sliding-window login rate limiting.
-  - **Permissions (`platform/src/permissions/`)**: Four roles (`analyst`, `senior_reviewer`, `compliance_admin`, `auditor`) enforced through a single `can(user, action, resource)` / `assertCan()` policy.
-  - **Audit (`platform/src/audit/`)**: Append-only `AuditLog` written automatically via a Prisma `$extends` query wrapper + `AsyncLocalStorage` context, redacting sensitive fields (`passwordHash`, `tokenHash`) and blocking updates/deletes (`403`).
-  - **Approvals (`platform/src/approvals/`)**: Generic state machine (`pending` -> `pending_second_approval` | `approved` | `rejected` | `escalated`) enforcing two-person sign-off when `riskScore >= 70`, separation of duties (no self-approval), and atomic entity transitions.
-  - **Model-Driven Views (`platform/src/models/`)**: `defineModel()` registry, permission-checked/auto-audited CRUD loaders with field-level role visibility, and reusable `ModelTable` / `ModelDetail` React components.
-  - **UI Kit (`platform/src/ui/`, `@internal/platform/ui`)**: App-agnostic React primitives — `AuthGate` + `useSession()`, `LoginView` (credentials + demo personas), `AppShell` (header, tabs, user menu, sign-out), `AuditLogPanel`, `StatGrid` / `StatCard`, `FilterBar` / `SearchInput` / `FilterSelect`, `SlaBadge`, `RoleBadge`, and `Notice`. Apps register `@source` for `platform/src` in their Tailwind entry.
-  - **HTTP (`platform/src/http/`, `@internal/platform/http`)**: Web-standard `Request`/`Response` route handlers apps re-export directly (`createLoginHandler()`, `logoutHandler`, `meHandler`, `auditLogHandler`, `healthHandler`), plus `validateSameOrigin()` CSRF checks, `handleApiError()`, `getUserFromRequest()`, and the shared `getAuditedPrisma()` client.
-- **`apps/kyc/` (`@internal/kyc`)** — Next.js 15 App Router KYC Review Queue built on `@internal/platform`:
-  - Queue with risk score, live SLA countdown/breach badges, assignment, and filters (status, risk tier, assignee, SLA, search).
-  - Case detail view with OCR Document Viewer, mock OFAC/EU/UN/PEP Sanctions Screening cards, approve/reject/escalate actions, two-person sign-off enforcement, and per-case + org-wide append-only audit trails.
-  - Role-based views and one-click demo persona switcher alongside real email/password login.
+### Platform (`platform/`, `@internal/platform`)
 
-## Quick Start
+Reusable building blocks that every internal app gets.
+
+| Area | What you get | Where |
+| --- | --- | --- |
+| Identity | Email/password login, database-backed sessions, signed HTTP-only cookies, login rate limiting | `platform/src/auth/` |
+| Permissions | Four roles and one `can(user, action, resource)` check used by APIs and UI | `platform/src/permissions/` |
+| Audit log | Every database write is logged automatically with actor, before/after and reason. Entries can't be edited or deleted | `platform/src/audit/` |
+| Approvals | Reusable approval state machine: two-person sign-off above a risk threshold, no self-approval | `platform/src/approvals/` |
+| Data models | `defineModel()` registry with field-level role visibility, plus permission-checked, audited CRUD loaders | `platform/src/models/` |
+| UI kit | Login, app shell, tables, filters, stats, SLA timer and audit log panel | `platform/src/ui/`, `platform/src/models/ui/` |
+| HTTP | Ready-made route handlers (login, logout, me, audit, health) and CSRF checks | `platform/src/http/` |
+
+### KYC review queue (`apps/kyc/`, `@internal/kyc`)
+
+A Next.js 15 app built on the platform.
+
+- Queue of KYC cases with risk score, SLA countdown, sanctions hits, filters, search and sorting.
+- Case detail with the customer profile, documents with OCR fields, and sanctions/PEP screening results.
+- Approve, reject or escalate with a required reason. Cases with risk score 70 or higher need sign-off from two different reviewers.
+- Per-case audit trail and an org-wide audit log.
+- Role-based views, including a read-only auditor.
+
+Document OCR and sanctions screening use seeded demo data, not live providers.
+
+## Run it
+
+Requires Node 22.12+ (Node 24 recommended) and pnpm 10.
 
 ```bash
 cp .env.example .env
@@ -30,16 +45,18 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Seeded Demo Accounts (password: `demo1234`)
+## Demo accounts
 
-| Persona | Email | Role | Capabilities |
+All accounts use the password `demo1234`. The login page also has one-click sign-in for each.
+
+| Persona | Email | Role | Can do |
 | --- | --- | --- | --- |
-| Alex Rivera | `analyst@fintech.demo` | `analyst` | Claim cases, approve low-risk (`< 70`), submit 1st sign-off or escalate high-risk |
-| Samira Patel | `senior@fintech.demo` | `senior_reviewer` | All analyst actions + 2nd-approver sign-off on high-risk (`>= 70`) cases |
-| Casey Morgan | `admin@fintech.demo` | `compliance_admin` | Reassign any case, approve high-risk cases, full audit access |
-| Avery Chen | `auditor@fintech.demo` | `auditor` | Read-only across all cases and audit logs; mutations return `403` |
+| Alex Rivera | `analyst@fintech.demo` | Analyst | Claim cases, approve low-risk cases, give first sign-off or escalate high-risk cases |
+| Samira Patel | `senior@fintech.demo` | Senior reviewer | Everything an analyst can, plus second sign-off on high-risk cases |
+| Casey Morgan | `admin@fintech.demo` | Compliance admin | Reassign any case, approve high-risk cases, full audit access |
+| Avery Chen | `auditor@fintech.demo` | Auditor | Read-only access to every case and the audit log |
 
-## Verification & Checks
+## Checks
 
 ```bash
 pnpm typecheck
@@ -48,10 +65,12 @@ pnpm test
 pnpm build
 ```
 
-## Production Database Migration (SQLite -> Managed Postgres)
+GitHub Actions runs the same steps on every PR. If you run `pnpm build` while `pnpm dev` is running, restart `pnpm dev` afterwards.
 
-This demo uses SQLite (`DATABASE_URL="file:./dev.db"`) for zero-config local execution. To deploy against managed PostgreSQL (AWS RDS, Supabase, Neon):
+## Moving to Postgres
 
-1. Change `provider = "sqlite"` to `provider = "postgresql"` in `platform/prisma/schema.prisma`.
-2. Set `DATABASE_URL` to your PostgreSQL connection string and set a strong `SESSION_SECRET`.
+The demo uses SQLite so it runs without setup. To use managed Postgres (AWS RDS, Supabase, Neon):
+
+1. Set `provider = "postgresql"` in `platform/prisma/schema.prisma`.
+2. Set `DATABASE_URL` to your connection string and set a strong `SESSION_SECRET`.
 3. Run `pnpm db:generate && pnpm db:push` (or `prisma migrate deploy`).
