@@ -10,7 +10,8 @@
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "db:generate": "pnpm --filter @internal/platform db:generate",
-    "db:push": "pnpm --filter @internal/platform db:push"
+    "db:push": "pnpm --filter @internal/platform db:push",
+    "db:seed": "pnpm --filter @internal/platform db:seed"
   },
   "devDependencies": {
     "typescript": "^5.8.2"
