@@ -31,6 +31,7 @@ export const kycCaseModel =
       },
       { key: "status", label: "Status", type: "badge", filterable: true },
       { key: "slaDueAt", label: "SLA", type: "date", sortable: true },
+      { key: "assigneeId", label: "Assignee ID", type: "string", detailOnly: true },
       { key: "assigneeName", label: "Assignee", type: "string" },
       { key: "summary", label: "Summary", type: "string", detailOnly: true },
     ],
