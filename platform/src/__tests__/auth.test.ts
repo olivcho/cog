@@ -112,29 +112,32 @@ describe("platform identity & sessions", () => {
     expect(remaining).toBeNull();
   });
 
-  it("rate-limits repeated failed login attempts and resets after window or success", () => {
-    const limiter = new LoginRateLimiter({ maxAttempts: 3, windowMs: 60_000 });
+  it("rate-limits login attempts atomically, fails closed at maxKeys, and resets on success", () => {
+    const limiter = new LoginRateLimiter({
+      maxAttempts: 3,
+      windowMs: 60_000,
+      maxKeys: 2,
+    });
     const key = "127.0.0.1:analyst@fintech.test";
     const t0 = 1_000_000;
 
-    expect(limiter.check(key, t0).allowed).toBe(true);
-    limiter.recordFailure(key, t0);
-    limiter.recordFailure(key, t0 + 1000);
-    limiter.recordFailure(key, t0 + 2000);
+    expect(limiter.consume(key, t0).allowed).toBe(true);
+    expect(limiter.consume(key, t0 + 1000).allowed).toBe(true);
+    expect(limiter.consume(key, t0 + 2000).allowed).toBe(true);
 
-    const blocked = limiter.check(key, t0 + 3000);
+    const blocked = limiter.consume(key, t0 + 3000);
     expect(blocked.allowed).toBe(false);
-    expect(blocked.retryAfterSeconds).toBeGreaterThan(0);
+    expect(blocked.retryAfterSeconds).toBe(57);
 
-    // Allowed again once window elapses.
-    expect(limiter.check(key, t0 + 61_000).allowed).toBe(true);
+    // Allowed again once first attempt exits the window.
+    expect(limiter.consume(key, t0 + 60_001).allowed).toBe(true);
 
-    // Explicit reset clears failures immediately.
-    limiter.recordFailure(key, t0 + 62_000);
-    limiter.recordFailure(key, t0 + 62_000);
-    limiter.recordFailure(key, t0 + 62_000);
-    expect(limiter.check(key, t0 + 62_000).allowed).toBe(false);
+    // Explicit reset clears the bucket immediately.
     limiter.reset(key);
-    expect(limiter.check(key, t0 + 62_000).allowed).toBe(true);
+    expect(limiter.consume(key, t0 + 62_000).allowed).toBe(true);
+
+    // Fails closed for new keys when maxKeys active buckets are full (never evicts active lockouts).
+    expect(limiter.consume("127.0.0.2:other@fintech.test", t0 + 62_000).allowed).toBe(true);
+    expect(limiter.consume("127.0.0.3:third@fintech.test", t0 + 62_000).allowed).toBe(false);
   });
 });

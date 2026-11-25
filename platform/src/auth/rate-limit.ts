@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export interface RateLimitResult {
   allowed: boolean;
   retryAfterSeconds: number;
@@ -23,30 +25,46 @@ export class LoginRateLimiter {
     this.maxKeys = options?.maxKeys ?? 10_000;
   }
 
-  check(key: string, now: number = Date.now()): RateLimitResult {
-    const window = this.pruneKey(key, now);
-    if (!window || window.attempts.length < this.maxAttempts) {
-      return { allowed: true, retryAfterSeconds: 0 };
-    }
-    const oldest = window.attempts[0] ?? now;
-    const retryAfterMs = Math.max(1000, oldest + this.windowMs - now);
-    return {
-      allowed: false,
-      retryAfterSeconds: Math.ceil(retryAfterMs / 1000),
-    };
+  private normalizeKey(rawKey: string): string {
+    return createHash("sha256").update(rawKey).digest("hex");
   }
 
-  recordFailure(key: string, now: number = Date.now()): void {
-    const window = this.pruneKey(key, now) ?? { attempts: [] };
+  /**
+   * Atomically checks capacity and reserves an attempt slot before async
+   * credential verification so concurrent in-flight requests cannot exceed the limit.
+   */
+  consume(rawKey: string, now: number = Date.now()): RateLimitResult {
+    const key = this.normalizeKey(rawKey);
+    const existing = this.pruneKey(key, now);
+
+    if (!existing && this.windows.size >= this.maxKeys) {
+      this.pruneAllExpired(now);
+      if (this.windows.size >= this.maxKeys) {
+        return {
+          allowed: false,
+          retryAfterSeconds: Math.max(1, Math.ceil(this.windowMs / 1000)),
+        };
+      }
+    }
+
+    if (existing && existing.attempts.length >= this.maxAttempts) {
+      const releaseIndex = existing.attempts.length - this.maxAttempts;
+      const releaseAt = (existing.attempts[releaseIndex] ?? now) + this.windowMs;
+      const retryAfterMs = Math.max(1000, releaseAt - now);
+      return {
+        allowed: false,
+        retryAfterSeconds: Math.ceil(retryAfterMs / 1000),
+      };
+    }
+
+    const window = existing ?? { attempts: [] };
     window.attempts.push(now);
     this.windows.set(key, window);
-    if (this.windows.size > this.maxKeys) {
-      this.evictOldest(now);
-    }
+    return { allowed: true, retryAfterSeconds: 0 };
   }
 
-  reset(key: string): void {
-    this.windows.delete(key);
+  reset(rawKey: string): void {
+    this.windows.delete(this.normalizeKey(rawKey));
   }
 
   private pruneKey(key: string, now: number): AttemptWindow | undefined {
@@ -62,17 +80,15 @@ export class LoginRateLimiter {
     return existing;
   }
 
-  private evictOldest(now: number): void {
+  private pruneAllExpired(now: number): void {
     const cutoff = now - this.windowMs;
     for (const [k, v] of this.windows) {
-      if (v.attempts.every((ts) => ts <= cutoff)) {
+      const recent = v.attempts.filter((ts) => ts > cutoff);
+      if (recent.length === 0) {
         this.windows.delete(k);
+      } else {
+        v.attempts = recent;
       }
-      if (this.windows.size <= this.maxKeys) return;
-    }
-    const firstKey = this.windows.keys().next().value;
-    if (firstKey !== undefined) {
-      this.windows.delete(firstKey);
     }
   }
 }
