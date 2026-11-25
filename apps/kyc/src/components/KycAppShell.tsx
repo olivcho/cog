@@ -17,11 +17,11 @@ export function KycAppShell({
 
   return (
     <AuthGate
-      appName="KYC Review Queue"
+      appName="KYC review"
       initialUser={initialUser}
       demoAccounts={demoAccounts}
       onAuthChange={router.refresh}
-      loginDescription="Sign in with email & password or choose a seeded fintech persona to inspect role-based permissions, two-person approvals, and the append-only audit trail."
+      loginDescription="Sign in to review KYC cases."
     >
       <KycWorkspace />
     </AuthGate>

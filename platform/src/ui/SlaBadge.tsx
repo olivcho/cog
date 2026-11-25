@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatDateTime } from "./format";
 
 const DEFAULT_URGENT_WINDOW_MS = 4 * 3600_000;
 
@@ -11,21 +12,23 @@ function formatDuration(ms: number): string {
   if (hours >= 24) {
     return `${Math.floor(hours / 24)}d ${hours % 24}h`;
   }
-  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, "0")}m`;
   return `${Math.max(minutes, 1)}m`;
 }
 
-const BASE =
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs tabular-nums";
+const BASE = "font-mono text-xs tabular-nums";
 
 export function SlaBadge({
   dueAt,
   closed = false,
   urgentWindowMs = DEFAULT_URGENT_WINDOW_MS,
+  showDueDate = false,
 }: {
   dueAt: string | Date;
   closed?: boolean;
   urgentWindowMs?: number;
+  /** Show the exact deadline next to the remaining time. */
+  showDueDate?: boolean;
 }) {
   const [now, setNow] = useState<number>(() => Date.now());
 
@@ -35,40 +38,32 @@ export function SlaBadge({
   }, []);
 
   if (closed) {
-    return (
-      <span className={`${BASE} border-slate-200 bg-slate-50 font-medium text-slate-500`}>
-        Closed
-      </span>
-    );
+    return <span className={`${BASE} text-ink-faint`}>closed</span>;
   }
 
-  const diffMs = new Date(dueAt).getTime() - now;
-  if (diffMs < 0) {
-    return (
-      <span
-        suppressHydrationWarning
-        className={`${BASE} border-red-200 bg-red-50 font-semibold text-red-700`}
-      >
-        Breached {formatDuration(diffMs)} ago
-      </span>
-    );
-  }
-  if (diffMs <= urgentWindowMs) {
-    return (
-      <span
-        suppressHydrationWarning
-        className={`${BASE} border-amber-200 bg-amber-50 font-semibold text-amber-800`}
-      >
-        Due in {formatDuration(diffMs)}
-      </span>
-    );
-  }
+  const due = new Date(dueAt);
+  const dueLabel = `due ${formatDateTime(due)} UTC`;
+  const diffMs = due.getTime() - now;
+  const tone =
+    diffMs < 0
+      ? "text-danger"
+      : diffMs <= urgentWindowMs
+        ? "text-ink"
+        : "text-ink-muted";
+
   return (
-    <span
+    <time
+      dateTime={due.toISOString()}
+      title={dueLabel}
       suppressHydrationWarning
-      className={`${BASE} border-emerald-200 bg-emerald-50 font-medium text-emerald-700`}
+      className={`${BASE} ${tone}`}
     >
-      {formatDuration(diffMs)} left
-    </span>
+      {formatDuration(diffMs)} {diffMs < 0 ? "over" : "left"}
+      {showDueDate ? (
+        <span className="text-ink-muted"> · {dueLabel}</span>
+      ) : (
+        <span className="sr-only">, {dueLabel}</span>
+      )}
+    </time>
   );
 }

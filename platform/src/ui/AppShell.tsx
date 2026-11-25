@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Button, Meta, Tag } from "./primitives";
 import { useSession } from "./session-context";
 
 export interface AppShellTab<T extends string = string> {
@@ -29,29 +30,23 @@ export function AppShell<T extends string>({
   const { user, signOut } = useSession();
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-3.5">
-          <div className="flex items-center gap-6">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                Internal Tools Platform
-              </p>
-              <h1 className="text-base font-bold text-slate-900">{appName}</h1>
-            </div>
-
+    <div className="min-h-screen">
+      <header className="border-b border-hairline">
+        <div className="mx-auto flex h-12 max-w-[1280px] items-center justify-between gap-6 px-8">
+          <div className="flex h-full items-center gap-10">
+            <span className="text-[15px]">{appName}</span>
             {tabs && tabs.length > 0 ? (
-              <nav className="flex items-center gap-1 rounded-lg bg-slate-100 p-1 text-xs font-medium">
+              <nav className="flex h-full items-center gap-6 text-[13px]">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => onTabChange?.(tab.id)}
                     aria-current={activeTab === tab.id ? "page" : undefined}
-                    className={`rounded-md px-3 py-1.5 transition ${
+                    className={`h-full transition-colors ${
                       activeTab === tab.id
-                        ? "bg-white text-slate-900 shadow-xs"
-                        : "text-slate-600 hover:text-slate-900"
+                        ? "text-accent shadow-[inset_0_-1px_0_var(--color-accent)]"
+                        : "text-ink-muted hover:text-ink"
                     }`}
                   >
                     {tab.label}
@@ -62,23 +57,18 @@ export function AppShell<T extends string>({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="text-right">
-              <div className="text-xs font-semibold text-slate-900">{user.name}</div>
-              <div className="font-mono text-[11px] text-slate-500">{user.role}</div>
-            </div>
-            <button
-              type="button"
-              onClick={() => void signOut()}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Switch Role / Sign Out
-            </button>
+            <span className="text-[13px]">{user.name}</span>
+            <Meta>{user.role}</Meta>
+            {user.role === "auditor" ? <Tag tone="muted">Read-only</Tag> : null}
+            <Button variant="ghost" size="sm" onClick={() => void signOut()}>
+              Sign out
+            </Button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-6 py-6">
-        {banner ? <div className="mb-5">{banner}</div> : null}
+      <main className="mx-auto max-w-[1280px] px-8 py-10">
+        {banner ? <div className="mb-8">{banner}</div> : null}
         {children}
       </main>
     </div>
