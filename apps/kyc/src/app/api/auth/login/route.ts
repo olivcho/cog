@@ -7,6 +7,7 @@ import {
   prisma,
   SESSION_COOKIE_NAME,
 } from "@internal/platform";
+import { validateSameOrigin } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,9 @@ function getClientIp(request: Request): string {
 }
 
 export async function POST(request: Request) {
+  const csrfError = validateSameOrigin(request, { requireJson: true });
+  if (csrfError) return csrfError;
+
   let body: unknown;
   try {
     body = await request.json();

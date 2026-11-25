@@ -5,10 +5,14 @@ import {
   revokeSession,
   SESSION_COOKIE_NAME,
 } from "@internal/platform";
+import { validateSameOrigin } from "@/lib/csrf";
 
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const csrfError = validateSameOrigin(request);
+  if (csrfError) return csrfError;
+
   const cookieStore = await cookies();
   const cookieValue = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   await revokeSession(prisma, cookieValue);
