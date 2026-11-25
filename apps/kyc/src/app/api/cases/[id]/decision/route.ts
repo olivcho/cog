@@ -6,10 +6,8 @@ import {
 } from "@internal/platform/approvals";
 import { getPrisma } from "@internal/platform/db";
 import type { ApprovalDecision } from "@internal/platform/types";
-import { handleApiError } from "@/lib/api-errors";
+import { getAuditedPrisma, handleApiError, validateSameOrigin } from "@internal/platform/http";
 import { getCurrentUser } from "@/lib/auth";
-import { validateSameOrigin } from "@/lib/csrf";
-import { getAuditedPrisma } from "@/lib/audited-prisma";
 
 export const dynamic = "force-dynamic";
 
