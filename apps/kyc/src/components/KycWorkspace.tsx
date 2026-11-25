@@ -3,17 +3,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ModelTable } from "@internal/platform/models/ui";
 import {
-  Button,
+  AppShell,
+  AuditLogPanel,
+  FilterBar,
+  FilterSelect,
   Meta,
+  SearchInput,
+  SlaBadge,
+  StatCard,
+  StatGrid,
   Tag,
   TagButton,
-  formatDateTime,
-  selectClass,
+  useSession,
 } from "@internal/platform/ui";
-import type { SessionUser } from "@internal/platform/types";
 import { kycCaseModel } from "@/lib/kyc-model";
 import { CaseDetailPanel } from "./CaseDetailPanel";
-import { SlaBadge } from "./SlaBadge";
 
 interface QueueCase extends Record<string, unknown> {
   id: string;
@@ -37,15 +41,12 @@ interface QueueStats {
   slaBreached: number;
 }
 
-interface AuditEntry {
-  id: string;
-  actorEmail: string;
-  action: string;
-  entityType: string;
-  entityId: string;
-  reason: string | null;
-  createdAt: string;
-}
+type Tab = "queue" | "audit";
+
+const TABS = [
+  { id: "queue", label: "Queue" },
+  { id: "audit", label: "Audit log" },
+] as const;
 
 const STATUS_FILTERS = [
   ["all", "All"],
@@ -64,19 +65,27 @@ const RISK_FILTERS = [
   ["low", "Low"],
 ] as const;
 
-export function KycWorkspace({
-  initialUser,
-  onSignedOut,
-}: {
-  initialUser: SessionUser;
-  onSignedOut: () => void;
-}) {
-  const [activeTab, setActiveTab] = useState<"queue" | "audit">("queue");
+const ASSIGNEE_OPTIONS = [
+  { value: "all", label: "Any assignee" },
+  { value: "me", label: "Assigned to me" },
+  { value: "unassigned", label: "Unassigned" },
+];
+
+const SLA_OPTIONS = [
+  { value: "all", label: "Any SLA" },
+  { value: "breached", label: "Breached" },
+  { value: "urgent", label: "Due in 4h" },
+];
+
+const CLOSED_STATUSES = new Set(["approved", "rejected"]);
+
+export function KycWorkspace() {
+  const { user } = useSession();
+  const [activeTab, setActiveTab] = useState<Tab>("queue");
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [cases, setCases] = useState<QueueCase[]>([]);
   const [stats, setStats] = useState<QueueStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -117,275 +126,164 @@ export function KycWorkspace({
     }
   }, [search, statusFilter, riskFilter, assigneeFilter, slaFilter]);
 
-  const loadAudit = useCallback(async () => {
-    const res = await fetch("/api/audit", { cache: "no-store" });
-    if (!res.ok) return;
-    const data = (await res.json()) as { entries: AuditEntry[] };
-    setAuditEntries(data.entries);
-  }, []);
-
   useEffect(() => {
     void loadCases();
   }, [loadCases]);
 
-  useEffect(() => {
-    if (activeTab === "audit") {
-      void loadAudit();
-    }
-  }, [activeTab, loadAudit]);
-
-  async function handleSignOut() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    onSignedOut();
-  }
-
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-hairline">
-        <div className="mx-auto flex h-12 max-w-[1280px] items-center justify-between gap-6 px-8">
-          <div className="flex h-full items-center gap-10">
-            <span className="text-[15px]">KYC review</span>
-            <nav className="flex h-full items-center gap-6 text-[13px]">
-              {(
-                [
-                  ["queue", "Queue"],
-                  ["audit", "Audit log"],
-                ] as const
-              ).map(([tab, label]) => (
-                <button
-                  key={tab}
-                  type="button"
-                  aria-current={activeTab === tab ? "page" : undefined}
-                  onClick={() => {
-                    setActiveTab(tab);
-                    setSelectedCaseId(null);
-                  }}
-                  className={`h-full transition-colors ${
-                    activeTab === tab
-                      ? "text-accent shadow-[inset_0_-1px_0_var(--color-accent)]"
-                      : "text-ink-muted hover:text-ink"
-                  }`}
+    <AppShell
+      appName="KYC review"
+      tabs={TABS}
+      activeTab={activeTab}
+      onTabChange={(tab) => {
+        setActiveTab(tab);
+        setSelectedCaseId(null);
+      }}
+    >
+      {activeTab === "audit" ? (
+        <AuditLogPanel />
+      ) : selectedCaseId ? (
+        <CaseDetailPanel
+          caseId={selectedCaseId}
+          currentUser={user}
+          onBack={() => setSelectedCaseId(null)}
+          onMutated={() => void loadCases()}
+        />
+      ) : (
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-4">
+            <h1 className="text-2xl tracking-[-0.02em]">Review queue</h1>
+            <Meta>
+              {cases.length} {cases.length === 1 ? "case" : "cases"}
+            </Meta>
+          </div>
+
+          {stats ? (
+            <StatGrid>
+              <StatCard label="Open" value={stats.open} />
+              <StatCard
+                label="Awaiting second sign-off"
+                value={stats.pendingSecondApproval}
+              />
+              <StatCard label="High risk" value={stats.highRiskActive} />
+              <StatCard
+                label="SLA breached"
+                value={stats.slaBreached}
+                tone={stats.slaBreached > 0 ? "danger" : "default"}
+              />
+            </StatGrid>
+          ) : null}
+
+          <FilterBar>
+            <div
+              role="group"
+              aria-label="Filter by status"
+              className="flex flex-wrap items-center gap-0.5"
+            >
+              {STATUS_FILTERS.map(([value, label]) => (
+                <TagButton
+                  key={value}
+                  selected={statusFilter === value}
+                  onClick={() => setStatusFilter(value)}
                 >
                   {label}
-                </button>
+                </TagButton>
               ))}
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="text-[13px]">{initialUser.name}</span>
-            <Meta>{initialUser.role}</Meta>
-            {initialUser.role === "auditor" ? (
-              <Tag tone="muted">Read-only</Tag>
-            ) : null}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void handleSignOut()}
+            </div>
+            <span aria-hidden className="h-4 w-px bg-hairline-strong" />
+            <div
+              role="group"
+              aria-label="Filter by risk tier"
+              className="flex flex-wrap items-center gap-0.5"
             >
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-[1280px] px-8 py-10">
-        {activeTab === "audit" ? (
-          <section className="space-y-6">
-            <div className="flex flex-wrap items-baseline justify-between gap-4">
-              <h1 className="text-2xl tracking-[-0.02em]">Audit log</h1>
-              <div className="flex items-baseline gap-4">
-                <Meta>{auditEntries.length} events</Meta>
-                <Button variant="ghost" size="sm" onClick={() => void loadAudit()}>
-                  Refresh
-                </Button>
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-[13px]">
-                <thead className="border-b border-hairline-strong text-xs text-ink-muted">
-                  <tr>
-                    <th className="py-2 pr-3 font-normal">Time (UTC)</th>
-                    <th className="px-3 py-2 font-normal">Actor</th>
-                    <th className="px-3 py-2 font-normal">Action</th>
-                    <th className="px-3 py-2 font-normal">Entity</th>
-                    <th className="py-2 pl-3 font-normal">Reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {auditEntries.map((entry) => (
-                    <tr key={entry.id} className="border-b border-hairline align-baseline">
-                      <td className="py-2.5 pr-3 font-mono text-xs whitespace-nowrap tabular-nums text-ink-muted">
-                        {formatDateTime(entry.createdAt)}
-                      </td>
-                      <td className="px-3 py-2.5 font-mono text-xs whitespace-nowrap">{entry.actorEmail}</td>
-                      <td className="px-3 py-2.5 font-mono text-xs">{entry.action}</td>
-                      <td className="px-3 py-2.5 font-mono text-xs text-ink-muted">
-                        {entry.entityType}
-                      </td>
-                      <td className="py-2.5 pl-3">{entry.reason ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        ) : selectedCaseId ? (
-          <CaseDetailPanel
-            caseId={selectedCaseId}
-            currentUser={initialUser}
-            onBack={() => setSelectedCaseId(null)}
-            onMutated={() => void loadCases()}
-          />
-        ) : (
-          <div className="space-y-6">
-            <div className="flex flex-wrap items-baseline justify-between gap-4">
-              <h1 className="text-2xl tracking-[-0.02em]">Review queue</h1>
-              <Meta>
-                {cases.length} {cases.length === 1 ? "case" : "cases"}
-              </Meta>
-            </div>
-
-            {stats ? (
-              <dl className="flex flex-wrap gap-x-10 gap-y-2 border-y border-hairline py-3 text-[13px]">
-                {(
-                  [
-                    ["Open", stats.open, false],
-                    ["Awaiting second sign-off", stats.pendingSecondApproval, false],
-                    ["High risk", stats.highRiskActive, false],
-                    ["SLA breached", stats.slaBreached, stats.slaBreached > 0],
-                  ] as const
-                ).map(([label, value, alert]) => (
-                  <div key={label} className="flex items-baseline gap-2">
-                    <dt className="text-ink-muted">{label}</dt>
-                    <dd
-                      className={`font-mono tabular-nums ${alert ? "text-danger" : "text-ink"}`}
-                    >
-                      {value}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            ) : null}
-
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-              <div
-                role="group"
-                aria-label="Filter by status"
-                className="flex flex-wrap items-center gap-0.5"
-              >
-                {STATUS_FILTERS.map(([value, label]) => (
-                  <TagButton
-                    key={value}
-                    selected={statusFilter === value}
-                    onClick={() => setStatusFilter(value)}
-                  >
-                    {label}
-                  </TagButton>
-                ))}
-              </div>
-              <span aria-hidden className="h-4 w-px bg-hairline-strong" />
-              <div
-                role="group"
-                aria-label="Filter by risk tier"
-                className="flex flex-wrap items-center gap-0.5"
-              >
-                {RISK_FILTERS.map(([value, label]) => (
-                  <TagButton
-                    key={value}
-                    selected={riskFilter === value}
-                    onClick={() => setRiskFilter(value)}
-                  >
-                    {label}
-                  </TagButton>
-                ))}
-              </div>
-
-              <div className="ml-auto flex flex-wrap items-center gap-2">
-                <input
-                  type="search"
-                  aria-label="Search cases"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search"
-                  className={`${selectClass} w-56 placeholder:text-ink-faint`}
-                />
-                <select
-                  aria-label="Filter by assignee"
-                  value={assigneeFilter}
-                  onChange={(e) => setAssigneeFilter(e.target.value)}
-                  className={selectClass}
+              {RISK_FILTERS.map(([value, label]) => (
+                <TagButton
+                  key={value}
+                  selected={riskFilter === value}
+                  onClick={() => setRiskFilter(value)}
                 >
-                  <option value="all">Any assignee</option>
-                  <option value="me">Assigned to me</option>
-                  <option value="unassigned">Unassigned</option>
-                </select>
-                <select
-                  aria-label="Filter by SLA"
-                  value={slaFilter}
-                  onChange={(e) => setSlaFilter(e.target.value)}
-                  className={selectClass}
-                >
-                  <option value="all">Any SLA</option>
-                  <option value="breached">Breached</option>
-                  <option value="urgent">Due in 4h</option>
-                </select>
-              </div>
+                  {label}
+                </TagButton>
+              ))}
             </div>
 
-            {loading && cases.length === 0 ? (
-              <p className="border-y border-hairline py-12 text-center text-[13px] text-ink-muted">
-                Loading queue…
-              </p>
-            ) : (
-              <ModelTable
-                model={kycCaseModel}
-                columns={columns}
-                items={cases}
-                showIndex
-                emptyMessage="No cases match these filters."
-                onRowClick={(record) => setSelectedCaseId(String(record.id))}
-                renderCell={(field, value, record) => {
-                  const row = record as QueueCase;
-                  if (field.key === "caseNumber") {
-                    const hits = row._count.sanctionsMatches;
-                    return (
-                      <span className="inline-flex items-baseline gap-2">
-                        <span className="font-mono text-xs">{String(value)}</span>
-                        {hits > 0 ? (
-                          <Tag tone="danger">
-                            {hits} {hits > 1 ? "hits" : "hit"}
-                          </Tag>
-                        ) : null}
-                      </span>
-                    );
-                  }
-                  if (field.key === "customerName") {
-                    return (
-                      <span className="inline-flex items-baseline gap-2">
-                        <span>{String(value)}</span>
-                        <Meta>{row.customerEmail}</Meta>
-                      </span>
-                    );
-                  }
-                  if (field.key === "country") {
-                    return <span className="font-mono text-xs">{String(value)}</span>;
-                  }
-                  if (field.key === "assigneeName" && value === "Unassigned") {
-                    return <span className="text-ink-faint">Unassigned</span>;
-                  }
-                  if (field.key === "slaDueAt") {
-                    return (
-                      <SlaBadge slaDueAt={String(value)} status={row.status} />
-                    );
-                  }
-                  return undefined;
-                }}
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <SearchInput
+                label="Search cases"
+                value={search}
+                onChange={setSearch}
+                placeholder="Search"
               />
-            )}
-          </div>
-        )}
-      </main>
-    </div>
+              <FilterSelect
+                label="Filter by assignee"
+                value={assigneeFilter}
+                onChange={setAssigneeFilter}
+                options={ASSIGNEE_OPTIONS}
+              />
+              <FilterSelect
+                label="Filter by SLA"
+                value={slaFilter}
+                onChange={setSlaFilter}
+                options={SLA_OPTIONS}
+              />
+            </div>
+          </FilterBar>
+
+          {loading && cases.length === 0 ? (
+            <p className="border-y border-hairline py-12 text-center text-[13px] text-ink-muted">
+              Loading queue…
+            </p>
+          ) : (
+            <ModelTable
+              model={kycCaseModel}
+              columns={columns}
+              items={cases}
+              showIndex
+              emptyMessage="No cases match these filters."
+              onRowClick={(record) => setSelectedCaseId(String(record.id))}
+              renderCell={(field, value, record) => {
+                const row = record as QueueCase;
+                if (field.key === "caseNumber") {
+                  const hits = row._count.sanctionsMatches;
+                  return (
+                    <span className="inline-flex items-baseline gap-2">
+                      <span className="font-mono text-xs">{String(value)}</span>
+                      {hits > 0 ? (
+                        <Tag tone="danger">
+                          {hits} {hits > 1 ? "hits" : "hit"}
+                        </Tag>
+                      ) : null}
+                    </span>
+                  );
+                }
+                if (field.key === "customerName") {
+                  return (
+                    <span className="inline-flex items-baseline gap-2">
+                      <span>{String(value)}</span>
+                      <Meta>{row.customerEmail}</Meta>
+                    </span>
+                  );
+                }
+                if (field.key === "country") {
+                  return <span className="font-mono text-xs">{String(value)}</span>;
+                }
+                if (field.key === "assigneeName" && value === "Unassigned") {
+                  return <span className="text-ink-faint">Unassigned</span>;
+                }
+                if (field.key === "slaDueAt") {
+                  return (
+                    <SlaBadge
+                      dueAt={String(value)}
+                      closed={CLOSED_STATUSES.has(row.status)}
+                    />
+                  );
+                }
+                return undefined;
+              }}
+            />
+          )}
+        </div>
+      )}
+    </AppShell>
   );
 }

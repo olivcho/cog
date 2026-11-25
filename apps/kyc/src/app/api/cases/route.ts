@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPrisma } from "@internal/platform/db";
 import { assertCan } from "@internal/platform/permissions";
 import { HIGH_RISK_THRESHOLD } from "@internal/platform/types";
-import { handleApiError } from "@/lib/api-errors";
+import { handleApiError } from "@internal/platform/http";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";

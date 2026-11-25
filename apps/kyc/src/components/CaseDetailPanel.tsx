@@ -14,8 +14,8 @@ import {
   inputClass,
   labelClass,
   selectClass,
+  SlaBadge,
 } from "@internal/platform/ui";
-import { SlaBadge } from "./SlaBadge";
 
 export interface CaseDocument {
   id: string;
@@ -280,7 +280,11 @@ export function CaseDetailPanel({
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <Meta>{kycCase.caseNumber}</Meta>
           <span className="text-ink-faint">·</span>
-          <SlaBadge slaDueAt={kycCase.slaDueAt} status={kycCase.status} />
+          <SlaBadge
+            dueAt={kycCase.slaDueAt}
+            closed={kycCase.status === "approved" || kycCase.status === "rejected"}
+            showDueDate
+          />
         </div>
         <h1 className="text-[32px] leading-[1.1] tracking-[-0.02em]">
           {kycCase.customerName}
