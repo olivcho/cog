@@ -8,6 +8,8 @@
     "./db": "./src/db/client.ts",
     "./auth": "./src/auth/index.ts",
     "./permissions": "./src/permissions/index.ts",
+    "./audit": "./src/audit/index.ts",
+    "./approvals": "./src/approvals/index.ts",
     "./types": "./src/types.ts"
   },
   "scripts": {
