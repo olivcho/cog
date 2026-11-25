@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { HIGH_RISK_THRESHOLD, type SessionUser } from "@internal/platform/types";
-import { SlaBadge } from "./SlaBadge";
+import { SlaBadge } from "@internal/platform/ui";
 
 export interface CaseDocument {
   id: string;
@@ -281,7 +281,10 @@ export function CaseDetailPanel({
               <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
                 {kycCase.status.replace(/_/g, " ")}
               </span>
-              <SlaBadge slaDueAt={kycCase.slaDueAt} status={kycCase.status} />
+              <SlaBadge
+                dueAt={kycCase.slaDueAt}
+                closed={kycCase.status === "approved" || kycCase.status === "rejected"}
+              />
             </div>
             <h2 className="mt-2 text-xl font-bold text-slate-900">
               {kycCase.customerName}

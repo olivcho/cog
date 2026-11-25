@@ -1,8 +1,5 @@
-import {
-  createAuditedPrismaClient,
-  type AuditedPrismaClient,
-} from "@internal/platform/audit";
-import { getPrisma } from "@internal/platform/db";
+import { createAuditedPrismaClient, type AuditedPrismaClient } from "../audit";
+import { getPrisma } from "../db/client";
 
 const globalForAudited = globalThis as unknown as {
   __auditedPrisma?: AuditedPrismaClient;

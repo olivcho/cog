@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateSameOrigin } from "../csrf";
+import { validateSameOrigin } from "../http/csrf";
 
 describe("validateSameOrigin", () => {
   it("allows same-origin application/json requests", () => {

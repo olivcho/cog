@@ -1,23 +1,25 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import type { Role } from "@internal/platform/types";
+import { useState, type FormEvent, type ReactNode } from "react";
+import type { DemoAccountInfo } from "../db/seed";
+import type { Role } from "../types";
+import { humanize } from "./format";
 import {
   Button,
   Meta,
   Notice,
   Tag,
-  humanize,
   inputClass,
   labelClass,
-} from "@internal/platform/ui";
+} from "./primitives";
 
-interface DemoPersona {
-  email: string;
-  name: string;
-  role: Role;
-  password: string;
-  description: string;
+export interface LoginViewProps {
+  appName: string;
+  /** Page heading, e.g. "Sign in to review KYC cases." */
+  description?: ReactNode;
+  demoAccounts?: readonly DemoAccountInfo[];
+  loginEndpoint?: string;
+  onSuccess: () => void;
 }
 
 const ROLE_SUMMARY: Record<Role, string> = {
@@ -34,7 +36,7 @@ function SectionLabel({
 }: {
   index: number;
   title: string;
-  aside?: React.ReactNode;
+  aside?: ReactNode;
 }) {
   return (
     <div className="mb-6 flex items-baseline gap-4 border-t border-hairline-strong pt-4">
@@ -46,12 +48,12 @@ function SectionLabel({
 }
 
 export function LoginView({
-  demoAccounts,
+  appName,
+  description = "Sign in.",
+  demoAccounts = [],
+  loginEndpoint = "/api/auth/login",
   onSuccess,
-}: {
-  demoAccounts: readonly DemoPersona[];
-  onSuccess: () => void;
-}) {
+}: LoginViewProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +63,7 @@ export function LoginView({
     setError(null);
     setLoadingEmail(targetEmail);
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(loginEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: targetEmail, password: targetPassword }),
@@ -88,17 +90,23 @@ export function LoginView({
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-hairline">
         <div className="mx-auto flex h-12 max-w-[1040px] items-center justify-between px-8">
-          <span className="text-[15px]">KYC review</span>
+          <span className="text-[15px]">{appName}</span>
           <Meta>Internal tools</Meta>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-[1040px] flex-1 px-8 pt-24 pb-16">
         <h1 className="max-w-[18ch] text-[36px] leading-[1.1] tracking-[-0.02em]">
-          Sign in to review KYC cases.
+          {description}
         </h1>
 
-        <div className="mt-16 grid gap-16 md:grid-cols-[minmax(0,340px)_1fr]">
+        <div
+          className={
+            demoAccounts.length > 0
+              ? "mt-16 grid gap-16 md:grid-cols-[minmax(0,340px)_1fr]"
+              : "mt-16 max-w-[340px]"
+          }
+        >
           <section>
             <SectionLabel index={1} title="Sign in" />
             <form onSubmit={handleFormSubmit} className="space-y-5">
@@ -154,6 +162,7 @@ export function LoginView({
             </form>
           </section>
 
+          {demoAccounts.length > 0 ? (
           <section>
             <SectionLabel
               index={2}
@@ -194,6 +203,7 @@ export function LoginView({
               ))}
             </ul>
           </section>
+          ) : null}
         </div>
       </main>
     </div>
