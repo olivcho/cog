@@ -1,4 +1,5 @@
 export { hashPassword, verifyPassword } from "./password";
+export { LoginRateLimiter, type RateLimitResult } from "./rate-limit";
 export {
   authenticateCredentials,
   buildSessionCookieOptions,

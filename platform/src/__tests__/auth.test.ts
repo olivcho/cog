@@ -10,6 +10,7 @@ import {
   encodeSessionCookie,
   getSessionUser,
   hashPassword,
+  LoginRateLimiter,
   revokeSession,
   verifyPassword,
   verifySessionCookie,
@@ -109,5 +110,31 @@ describe("platform identity & sessions", () => {
       where: { id: expired.sessionId },
     });
     expect(remaining).toBeNull();
+  });
+
+  it("rate-limits repeated failed login attempts and resets after window or success", () => {
+    const limiter = new LoginRateLimiter({ maxAttempts: 3, windowMs: 60_000 });
+    const key = "127.0.0.1:analyst@fintech.test";
+    const t0 = 1_000_000;
+
+    expect(limiter.check(key, t0).allowed).toBe(true);
+    limiter.recordFailure(key, t0);
+    limiter.recordFailure(key, t0 + 1000);
+    limiter.recordFailure(key, t0 + 2000);
+
+    const blocked = limiter.check(key, t0 + 3000);
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.retryAfterSeconds).toBeGreaterThan(0);
+
+    // Allowed again once window elapses.
+    expect(limiter.check(key, t0 + 61_000).allowed).toBe(true);
+
+    // Explicit reset clears failures immediately.
+    limiter.recordFailure(key, t0 + 62_000);
+    limiter.recordFailure(key, t0 + 62_000);
+    limiter.recordFailure(key, t0 + 62_000);
+    expect(limiter.check(key, t0 + 62_000).allowed).toBe(false);
+    limiter.reset(key);
+    expect(limiter.check(key, t0 + 62_000).allowed).toBe(true);
   });
 });
