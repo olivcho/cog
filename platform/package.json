@@ -14,7 +14,7 @@
     "lint": "eslint src",
     "test": "vitest run",
     "db:generate": "prisma generate",
-    "db:push": "DATABASE_URL=${DATABASE_URL:-file:./dev.db} prisma db push --skip-generate"
+    "db:push": "node scripts/db-push.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2"

@@ -1,11 +1,13 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
+import { loadWorkspaceEnv } from "./env";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultDbPath = path.resolve(currentDir, "../../prisma/dev.db");
 
 export function resolveDatabaseUrl(): string {
+  loadWorkspaceEnv();
   const configured = process.env.DATABASE_URL;
   if (!configured) {
     return `file:${defaultDbPath}`;

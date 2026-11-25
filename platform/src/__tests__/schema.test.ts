@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createPrismaClient, HIGH_RISK_THRESHOLD, ROLES } from "../index";
+import { loadWorkspaceEnv } from "../db/env";
 
 describe("platform database schema smoke test", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "platform-schema-"));
@@ -121,5 +122,25 @@ describe("platform database schema smoke test", () => {
     expect(kycCase.sanctionsMatches).toHaveLength(1);
     expect(approval.steps).toHaveLength(1);
     expect(audit.entityId).toBe(kycCase.id);
+  });
+
+  it("loads DATABASE_URL from workspace .env without overriding explicit env", () => {
+    const envPath = path.join(tempDir, ".env");
+    fs.writeFileSync(
+      envPath,
+      '# comment\nDATABASE_URL="postgresql://user:pass@localhost:5432/app"\nSESSION_SECRET=abc\n',
+    );
+
+    const emptyEnv: Record<string, string | undefined> = {};
+    loadWorkspaceEnv(envPath, emptyEnv);
+    expect(emptyEnv.DATABASE_URL).toBe("postgresql://user:pass@localhost:5432/app");
+    expect(emptyEnv.SESSION_SECRET).toBe("abc");
+
+    const explicitEnv: Record<string, string | undefined> = {
+      DATABASE_URL: "file:./override.db",
+    };
+    loadWorkspaceEnv(envPath, explicitEnv);
+    expect(explicitEnv.DATABASE_URL).toBe("file:./override.db");
+    expect(explicitEnv.SESSION_SECRET).toBe("abc");
   });
 });
