@@ -333,26 +333,52 @@ export function CaseDetailPanel({
           <p className="text-[13px] text-ink-muted">No documents uploaded.</p>
         ) : (
           <div>
-            <div role="tablist" className="flex flex-wrap gap-6 border-b border-hairline text-[13px]">
-              {kycCase.documents.map((doc) => (
-                <button
-                  key={doc.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={selectedDoc.id === doc.id}
-                  onClick={() => setSelectedDocId(doc.id)}
-                  className={`-mb-px pb-2 transition-colors ${
-                    selectedDoc.id === doc.id
-                      ? "border-b border-ink text-ink"
-                      : "text-ink-muted hover:text-ink"
-                  }`}
-                >
-                  {humanize(doc.docType)}
-                </button>
-              ))}
+            <div
+              role="tablist"
+              aria-label="Documents"
+              onKeyDown={(e) => {
+                const step =
+                  e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+                if (step === 0) return;
+                e.preventDefault();
+                const docs = kycCase.documents;
+                const current = docs.findIndex((d) => d.id === selectedDoc.id);
+                const next = docs[(current + step + docs.length) % docs.length];
+                setSelectedDocId(next.id);
+                document.getElementById(`doc-tab-${next.id}`)?.focus();
+              }}
+              className="flex flex-wrap gap-6 border-b border-hairline text-[13px]"
+            >
+              {kycCase.documents.map((doc) => {
+                const selected = selectedDoc.id === doc.id;
+                return (
+                  <button
+                    key={doc.id}
+                    id={`doc-tab-${doc.id}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    aria-controls="doc-panel"
+                    tabIndex={selected ? 0 : -1}
+                    onClick={() => setSelectedDocId(doc.id)}
+                    className={`-mb-px pb-2 transition-colors ${
+                      selected
+                        ? "border-b border-ink text-ink"
+                        : "text-ink-muted hover:text-ink"
+                    }`}
+                  >
+                    {humanize(doc.docType)}
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="mt-4 border border-hairline-strong bg-white/60 p-4">
+            <div
+              id="doc-panel"
+              role="tabpanel"
+              aria-labelledby={`doc-tab-${selectedDoc.id}`}
+              className="mt-4 border border-hairline-strong bg-white/60 p-4"
+            >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="font-mono text-xs">{selectedDoc.fileName}</span>
                 <Tag
@@ -465,7 +491,7 @@ export function CaseDetailPanel({
                     </span>
                     <span className="text-ink-muted">
                       {" "}
-                      — step {step.stepNumber} of {requiredApprovals} —{" "}
+                      — step {step.stepNumber} —{" "}
                       {step.actor.role}
                     </span>
                     <p className="mt-1 font-sans text-[13px] text-ink-muted">
