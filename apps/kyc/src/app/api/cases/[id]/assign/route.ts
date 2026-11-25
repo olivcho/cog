@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuditContext } from "@internal/platform/audit";
 import { getPrisma } from "@internal/platform/db";
 import { assertCan } from "@internal/platform/permissions";
-import { handleApiError } from "@/lib/api-errors";
+import { getAuditedPrisma, handleApiError, validateSameOrigin } from "@internal/platform/http";
 import { getCurrentUser } from "@/lib/auth";
-import { validateSameOrigin } from "@/lib/csrf";
-import { getAuditedPrisma } from "@/lib/audited-prisma";
 
 export const dynamic = "force-dynamic";
 

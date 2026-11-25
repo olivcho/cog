@@ -1,5 +1,3 @@
-import { NextResponse } from "next/server";
-
 function getExpectedOrigin(request: Request): string {
   const url = new URL(request.url);
   const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
@@ -14,10 +12,10 @@ function getExpectedOrigin(request: Request): string {
 export function validateSameOrigin(
   request: Request,
   options?: { requireJson?: boolean },
-): NextResponse | null {
+): Response | null {
   const fetchSite = request.headers.get("sec-fetch-site")?.toLowerCase();
   if (fetchSite === "cross-site") {
-    return NextResponse.json(
+    return Response.json(
       { error: "Cross-site requests are not allowed" },
       { status: 403 },
     );
@@ -27,7 +25,7 @@ export function validateSameOrigin(
   if (origin) {
     const expected = getExpectedOrigin(request);
     if (origin.toLowerCase() !== expected) {
-      return NextResponse.json(
+      return Response.json(
         { error: "Cross-origin requests are not allowed" },
         { status: 403 },
       );
@@ -38,7 +36,7 @@ export function validateSameOrigin(
     const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
     const mediaType = contentType.split(";")[0]?.trim();
     if (mediaType !== "application/json") {
-      return NextResponse.json(
+      return Response.json(
         { error: "Content-Type must be application/json" },
         { status: 415 },
       );

@@ -11,7 +11,13 @@ export interface AuditContext {
   tx?: Prisma.TransactionClient;
 }
 
-const auditStorage = new AsyncLocalStorage<AuditContext>();
+// Shared via globalThis: Next.js compiles each route into its own bundle, and the
+// cached audited Prisma client must read the same storage every route writes to.
+const globalForAudit = globalThis as unknown as {
+  __platformAuditStorage?: AsyncLocalStorage<AuditContext>;
+};
+const auditStorage = (globalForAudit.__platformAuditStorage ??=
+  new AsyncLocalStorage<AuditContext>());
 
 /**
  * Runs `fn` with an active audit context. Awaits the result inside `run()`
