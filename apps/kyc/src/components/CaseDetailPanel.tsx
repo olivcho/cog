@@ -344,6 +344,7 @@ export function CaseDetailPanel({
                 const docs = kycCase.documents;
                 const current = docs.findIndex((d) => d.id === selectedDoc.id);
                 const next = docs[(current + step + docs.length) % docs.length];
+                if (!next) return;
                 setSelectedDocId(next.id);
                 document.getElementById(`doc-tab-${next.id}`)?.focus();
               }}
