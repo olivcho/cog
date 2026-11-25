@@ -1,15 +1,8 @@
 import type { ReactNode } from "react";
+import { formatDateTime } from "../../ui/format";
+import { Meta, Section } from "../../ui/primitives";
 import type { FieldDef, ModelDefinition } from "../registry";
 import { FieldValue } from "./FieldValue";
-
-const AUDIT_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "UTC",
-  timeZoneName: "short",
-});
 
 export interface AuditEntryView {
   id: string;
@@ -32,6 +25,45 @@ export interface ModelDetailProps {
   ) => ReactNode | undefined;
 }
 
+export function AuditTrail({
+  entries,
+}: {
+  entries: readonly AuditEntryView[];
+}) {
+  if (entries.length === 0) {
+    return <p className="text-[13px] text-ink-muted">No events yet.</p>;
+  }
+  return (
+    <ol className="border-t border-hairline">
+      {entries.map((entry) => {
+        const ts =
+          entry.createdAt instanceof Date
+            ? entry.createdAt
+            : new Date(entry.createdAt);
+        return (
+          <li
+            key={entry.id}
+            className="grid grid-cols-1 gap-x-6 gap-y-1 border-b border-hairline py-2.5 font-mono text-xs sm:grid-cols-[136px_1fr]"
+          >
+            <time dateTime={ts.toISOString()} className="tabular-nums text-ink-muted">
+              {formatDateTime(ts)}
+            </time>
+            <div className="min-w-0">
+              <span className="text-ink">{entry.action}</span>
+              <span className="text-ink-muted"> — {entry.actorEmail}</span>
+              {entry.reason ? (
+                <p className="mt-1 font-sans text-[13px] text-ink-muted">
+                  {entry.reason}
+                </p>
+              ) : null}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export function ModelDetail({
   model,
   fields,
@@ -41,30 +73,17 @@ export function ModelDetail({
   renderField,
 }: ModelDetailProps) {
   return (
-    <div className="space-y-6">
-      <section className="rounded-lg border border-slate-200 bg-white shadow-xs">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-          <div>
-            <h2 className="text-base font-semibold text-slate-900">
-              {model.label} Details
-            </h2>
-            <p className="text-xs text-slate-500">
-              Permissions-enforced model view ({fields.length} visible fields)
-            </p>
-          </div>
-          {headerActions ? (
-            <div className="flex items-center gap-2">{headerActions}</div>
-          ) : null}
-        </div>
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-4 px-5 py-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="space-y-10">
+      <Section index={1} title={model.label} aside={headerActions}>
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
           {fields.map((field) => {
             const custom = renderField?.(field, record[field.key], record);
             return (
-              <div key={field.key} className="space-y-1">
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  {field.label}
+              <div key={field.key}>
+                <dt>
+                  <Meta>{field.label}</Meta>
                 </dt>
-                <dd className="text-sm">
+                <dd className="mt-1 text-[13px]">
                   {custom !== undefined ? (
                     custom
                   ) : (
@@ -75,55 +94,16 @@ export function ModelDetail({
             );
           })}
         </dl>
-      </section>
+      </Section>
 
       {auditTrail ? (
-        <section className="rounded-lg border border-slate-200 bg-white shadow-xs">
-          <div className="border-b border-slate-200 px-5 py-3">
-            <h3 className="text-sm font-semibold text-slate-900">
-              Append-Only Audit Trail ({auditTrail.length})
-            </h3>
-          </div>
-          {auditTrail.length === 0 ? (
-            <p className="px-5 py-4 text-sm text-slate-500">
-              No audit events recorded yet.
-            </p>
-          ) : (
-            <ol className="divide-y divide-slate-100 px-5">
-              {auditTrail.map((entry) => {
-                const ts =
-                  entry.createdAt instanceof Date
-                    ? entry.createdAt
-                    : new Date(entry.createdAt);
-                return (
-                  <li
-                    key={entry.id}
-                    className="flex flex-wrap items-baseline justify-between gap-2 py-3 text-sm"
-                  >
-                    <div className="space-y-0.5">
-                      <span className="font-medium text-slate-900">
-                        {entry.action}
-                      </span>{" "}
-                      <span className="text-slate-500">by</span>{" "}
-                      <span className="font-mono text-xs text-slate-700">
-                        {entry.actorEmail}
-                      </span>
-                      {entry.reason ? (
-                        <p className="text-xs text-slate-600">{entry.reason}</p>
-                      ) : null}
-                    </div>
-                    <time
-                      dateTime={ts.toISOString()}
-                      className="text-xs tabular-nums text-slate-500"
-                    >
-                      {AUDIT_DATE_FORMATTER.format(ts)}
-                    </time>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-        </section>
+        <Section
+          index={2}
+          title="Audit trail"
+          aside={<Meta>{auditTrail.length} events</Meta>}
+        >
+          <AuditTrail entries={auditTrail} />
+        </Section>
       ) : null}
     </div>
   );
