@@ -2,6 +2,15 @@
 
 import { useState, type FormEvent } from "react";
 import type { Role } from "@internal/platform/types";
+import {
+  Button,
+  Meta,
+  Notice,
+  Tag,
+  humanize,
+  inputClass,
+  labelClass,
+} from "@internal/platform/ui";
 
 interface DemoPersona {
   email: string;
@@ -11,12 +20,30 @@ interface DemoPersona {
   description: string;
 }
 
-const ROLE_BADGES: Record<Role, string> = {
-  analyst: "bg-blue-50 text-blue-700 border-blue-200",
-  senior_reviewer: "bg-indigo-50 text-indigo-700 border-indigo-200",
-  compliance_admin: "bg-purple-50 text-purple-700 border-purple-200",
-  auditor: "bg-slate-100 text-slate-700 border-slate-300",
+const ROLE_SUMMARY: Record<Role, string> = {
+  analyst: "Approves cases with risk under 70",
+  senior_reviewer: "Gives second sign-off on high-risk cases",
+  compliance_admin: "Reassigns and approves any case",
+  auditor: "Reads cases and the audit log",
 };
+
+function SectionLabel({
+  index,
+  title,
+  aside,
+}: {
+  index: number;
+  title: string;
+  aside?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-6 flex items-baseline gap-4 border-t border-hairline-strong pt-4">
+      <Meta>{String(index).padStart(2, "0")}</Meta>
+      <h2 className="flex-1 text-[15px]">{title}</h2>
+      {aside}
+    </div>
+  );
+}
 
 export function LoginView({
   demoAccounts,
@@ -41,12 +68,12 @@ export function LoginView({
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        setError(data.error ?? "Sign-in failed");
+        setError(data.error ?? "We couldn't sign you in.");
         return;
       }
       onSuccess();
     } catch {
-      setError("Network error while signing in");
+      setError("We couldn't reach the server. Try again.");
     } finally {
       setLoadingEmail(null);
     }
@@ -58,136 +85,117 @@ export function LoginView({
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-12">
-      <div className="mb-8 text-center">
-        <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-          Horizontal Internal Tools Platform
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-          KYC Review Queue
+    <div className="flex min-h-screen flex-col">
+      <header className="border-b border-hairline">
+        <div className="mx-auto flex h-12 max-w-[1040px] items-center justify-between px-8">
+          <span className="text-[15px]">KYC review</span>
+          <Meta>Internal tools</Meta>
+        </div>
+      </header>
+
+      <main className="mx-auto w-full max-w-[1040px] flex-1 px-8 pt-24 pb-16">
+        <h1 className="max-w-[18ch] text-[36px] leading-[1.1] tracking-[-0.02em]">
+          Sign in to review KYC cases.
         </h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Sign in with email &amp; password or choose a seeded fintech persona to inspect role-based permissions, two-person approvals, and the append-only audit trail.
-        </p>
-      </div>
 
-      <div className="grid gap-8 lg:grid-cols-5">
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs lg:col-span-2">
-          <h2 className="text-base font-semibold text-slate-900">
-            Sign in with credentials
-          </h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Session cookies are HMAC-SHA256 signed, HTTP-only, and backed by SQLite.
-          </p>
+        <div className="mt-16 grid gap-16 md:grid-cols-[minmax(0,340px)_1fr]">
+          <section>
+            <SectionLabel index={1} title="Sign in" />
+            <form onSubmit={handleFormSubmit} className="space-y-5">
+              <div>
+                <label htmlFor="login-email" className={labelClass}>
+                  Email
+                </label>
+                <input
+                  id="login-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@company.com"
+                  className={inputClass}
+                />
+              </div>
 
-          <form onSubmit={handleFormSubmit} className="mt-5 space-y-4">
-            <div>
-              <label
-                htmlFor="login-email"
-                className="block text-xs font-medium text-slate-700"
-              >
-                Email
-              </label>
-              <input
-                id="login-email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="analyst@fintech.demo"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-900 focus:outline-none"
-              />
-            </div>
+              <div>
+                <label htmlFor="login-password" className={labelClass}>
+                  Password
+                </label>
+                <input
+                  id="login-password"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
 
-            <div>
-              <label
-                htmlFor="login-password"
-                className="block text-xs font-medium text-slate-700"
-              >
-                Password
-              </label>
-              <input
-                id="login-password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-900 focus:outline-none"
-              />
-            </div>
-
-            {error ? (
-              <p
-                role="alert"
-                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
-              >
-                {error}
-              </p>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={loadingEmail !== null}
-              className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
-            >
-              {loadingEmail === email && email !== ""
-                ? "Signing in..."
-                : "Sign in"}
-            </button>
-          </form>
-        </section>
-
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs lg:col-span-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-slate-900">
-                One-Click Demo Personas
-              </h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Authenticates through the real <code className="font-mono">/api/auth/login</code> endpoint.
-              </p>
-            </div>
-            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 border border-amber-200">
-              Demo Mode
-            </span>
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {demoAccounts.map((persona) => (
-              <button
-                key={persona.email}
-                type="button"
-                disabled={loadingEmail !== null}
-                onClick={() => void submitLogin(persona.email, persona.password)}
-                className="flex flex-col items-start rounded-lg border border-slate-200 p-4 text-left transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50"
-              >
-                <div className="flex w-full items-center justify-between gap-2">
-                  <span className="font-semibold text-sm text-slate-900">
-                    {persona.name}
-                  </span>
-                  <span
-                    className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${ROLE_BADGES[persona.role]}`}
-                  >
-                    {persona.role.replace("_", " ")}
-                  </span>
+              {error ? (
+                <div role="alert">
+                  <Notice label="Error" tone="danger">
+                    {error}
+                  </Notice>
                 </div>
-                <span className="mt-1 font-mono text-[11px] text-slate-500">
-                  {persona.email}
-                </span>
-                <p className="mt-2 text-xs leading-relaxed text-slate-600">
-                  {persona.description}
-                </p>
-                <span className="mt-3 text-xs font-medium text-slate-900">
-                  {loadingEmail === persona.email
-                    ? "Signing in..."
-                    : "Sign in as this role →"}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      </div>
-    </main>
+              ) : null}
+
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={loadingEmail !== null}
+                className="w-full"
+              >
+                {loadingEmail === email && email !== ""
+                  ? "Signing in…"
+                  : "Sign in"}
+              </Button>
+            </form>
+          </section>
+
+          <section>
+            <SectionLabel
+              index={2}
+              title="Demo accounts"
+              aside={<Tag tone="muted">Demo</Tag>}
+            />
+            <ul className="border-t border-hairline">
+              {demoAccounts.map((persona, i) => (
+                <li key={persona.email} className="border-b border-hairline">
+                  <button
+                    type="button"
+                    disabled={loadingEmail !== null}
+                    onClick={() =>
+                      void submitLogin(persona.email, persona.password)
+                    }
+                    className="group grid w-full grid-cols-[32px_1fr_auto] items-baseline gap-x-4 py-3.5 text-left transition-colors hover:bg-surface disabled:opacity-40"
+                  >
+                    <Meta>{String(i + 1).padStart(2, "0")}</Meta>
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-baseline gap-x-3">
+                        <span className="text-sm">{persona.name}</span>
+                        <Meta>{persona.email}</Meta>
+                      </span>
+                      <span className="mt-0.5 block text-[13px] text-ink-muted">
+                        {ROLE_SUMMARY[persona.role]}
+                      </span>
+                    </span>
+                    <span className="flex items-baseline gap-4">
+                      <Tag tone="muted">{humanize(persona.role)}</Tag>
+                      <span className="w-[72px] text-right text-[13px] text-ink-muted group-hover:text-ink">
+                        {loadingEmail === persona.email
+                          ? "Signing in…"
+                          : "Sign in →"}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      </main>
+    </div>
   );
 }

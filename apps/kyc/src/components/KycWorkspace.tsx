@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ModelTable } from "@internal/platform/models/ui";
+import { Button, Meta, Tag } from "@internal/platform/ui";
 import type { SessionUser } from "@internal/platform/types";
 import { kycCaseModel } from "@/lib/kyc-model";
 import { CaseDetailPanel } from "./CaseDetailPanel";
@@ -124,78 +125,56 @@ export function KycWorkspace({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-3.5">
-          <div className="flex items-center gap-6">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                Internal Tools Platform
-              </p>
-              <h1 className="text-base font-bold text-slate-900">
-                KYC Review Queue
-              </h1>
-            </div>
-
-            <nav className="flex items-center gap-1 rounded-lg bg-slate-100 p-1 text-xs font-medium">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("queue");
-                  setSelectedCaseId(null);
-                }}
-                className={`rounded-md px-3 py-1.5 transition ${
-                  activeTab === "queue"
-                    ? "bg-white text-slate-900 shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Review Queue
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("audit");
-                  setSelectedCaseId(null);
-                }}
-                className={`rounded-md px-3 py-1.5 transition ${
-                  activeTab === "audit"
-                    ? "bg-white text-slate-900 shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Org Audit Log
-              </button>
+    <div className="min-h-screen">
+      <header className="border-b border-hairline">
+        <div className="mx-auto flex h-12 max-w-[1280px] items-center justify-between gap-6 px-8">
+          <div className="flex h-full items-center gap-10">
+            <span className="text-[15px]">KYC review</span>
+            <nav className="flex h-full items-center gap-6 text-[13px]">
+              {(
+                [
+                  ["queue", "Queue"],
+                  ["audit", "Audit log"],
+                ] as const
+              ).map(([tab, label]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  aria-current={activeTab === tab ? "page" : undefined}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    setSelectedCaseId(null);
+                  }}
+                  className={`h-full transition-colors ${
+                    activeTab === tab
+                      ? "text-accent shadow-[inset_0_-1px_0_var(--color-accent)]"
+                      : "text-ink-muted hover:text-ink"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </nav>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="text-right">
-              <div className="text-xs font-semibold text-slate-900">
-                {initialUser.name}
-              </div>
-              <div className="font-mono text-[11px] text-slate-500">
-                {initialUser.role}
-              </div>
-            </div>
-            <button
-              type="button"
+            <span className="text-[13px]">{initialUser.name}</span>
+            <Meta>{initialUser.role}</Meta>
+            {initialUser.role === "auditor" ? (
+              <Tag tone="muted">Read-only</Tag>
+            ) : null}
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => void handleSignOut()}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
             >
-              Switch Role / Sign Out
-            </button>
+              Sign out
+            </Button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-6 py-6">
-        {initialUser.role === "auditor" ? (
-          <div className="mb-5 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-xs text-slate-700">
-            <strong>Auditor Session:</strong> Read-only access across all KYC cases and append-only audit logs.
-          </div>
-        ) : null}
-
+      <main className="mx-auto max-w-[1280px] px-8 py-10">
         {activeTab === "audit" ? (
           <section className="rounded-xl border border-slate-200 bg-white shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
