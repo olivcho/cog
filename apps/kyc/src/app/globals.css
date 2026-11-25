@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@source "../../../../platform/src";
 
 :root {
   color-scheme: light;

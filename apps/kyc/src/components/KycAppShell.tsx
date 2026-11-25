@@ -1,40 +1,29 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import type { Role, SessionUser } from "@internal/platform/types";
+import type { DemoAccountInfo } from "@internal/platform";
+import type { SessionUser } from "@internal/platform/types";
+import { AuthGate } from "@internal/platform/ui";
 import { KycWorkspace } from "./KycWorkspace";
-import { LoginView } from "./LoginView";
-
-interface DemoPersona {
-  email: string;
-  name: string;
-  role: Role;
-  password: string;
-  description: string;
-}
 
 export function KycAppShell({
   initialUser,
   demoAccounts,
 }: {
   initialUser: SessionUser | null;
-  demoAccounts: readonly DemoPersona[];
+  demoAccounts: readonly DemoAccountInfo[];
 }) {
   const router = useRouter();
 
-  if (!initialUser) {
-    return (
-      <LoginView
-        demoAccounts={demoAccounts}
-        onSuccess={() => router.refresh()}
-      />
-    );
-  }
-
   return (
-    <KycWorkspace
+    <AuthGate
+      appName="KYC Review Queue"
       initialUser={initialUser}
-      onSignedOut={() => router.refresh()}
-    />
+      demoAccounts={demoAccounts}
+      onAuthChange={router.refresh}
+      loginDescription="Sign in with email & password or choose a seeded fintech persona to inspect role-based permissions, two-person approvals, and the append-only audit trail."
+    >
+      <KycWorkspace />
+    </AuthGate>
   );
 }
