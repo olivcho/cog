@@ -7,6 +7,7 @@ import {
   Meta,
   Tag,
   TagButton,
+  formatDateTime,
   selectClass,
 } from "@internal/platform/ui";
 import type { SessionUser } from "@internal/platform/types";
@@ -62,15 +63,6 @@ const RISK_FILTERS = [
   ["medium", "Medium"],
   ["low", "Low"],
 ] as const;
-
-const UTC_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "UTC",
-  timeZoneName: "short",
-});
 
 export function KycWorkspace({
   initialUser,
@@ -199,55 +191,39 @@ export function KycWorkspace({
 
       <main className="mx-auto max-w-[1280px] px-8 py-10">
         {activeTab === "audit" ? (
-          <section className="rounded-xl border border-slate-200 bg-white shadow-xs">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Append-Only Organization Audit Log ({auditEntries.length})
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Written automatically via Prisma <code className="font-mono">$extends</code> on every mutation. Updates and deletes throw <code className="font-mono">403</code>.
-                </p>
+          <section className="space-y-6">
+            <div className="flex flex-wrap items-baseline justify-between gap-4">
+              <h1 className="text-2xl tracking-[-0.02em]">Audit log</h1>
+              <div className="flex items-baseline gap-4">
+                <Meta>{auditEntries.length} events</Meta>
+                <Button variant="ghost" size="sm" onClick={() => void loadAudit()}>
+                  Refresh
+                </Button>
               </div>
-              <button
-                type="button"
-                onClick={() => void loadAudit()}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Refresh
-              </button>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
-                <thead className="bg-slate-50 font-semibold uppercase text-slate-500">
+              <table className="min-w-full text-left text-[13px]">
+                <thead className="border-b border-hairline-strong text-xs text-ink-muted">
                   <tr>
-                    <th className="px-4 py-3">Timestamp</th>
-                    <th className="px-4 py-3">Actor</th>
-                    <th className="px-4 py-3">Action</th>
-                    <th className="px-4 py-3">Entity</th>
-                    <th className="px-4 py-3">Reason</th>
+                    <th className="py-2 pr-3 font-normal">Time (UTC)</th>
+                    <th className="px-3 py-2 font-normal">Actor</th>
+                    <th className="px-3 py-2 font-normal">Action</th>
+                    <th className="px-3 py-2 font-normal">Entity</th>
+                    <th className="py-2 pl-3 font-normal">Reason</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {auditEntries.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-slate-50/70">
-                      <td className="px-4 py-2.5 whitespace-nowrap tabular-nums text-slate-600">
-                        {UTC_FORMATTER.format(new Date(entry.createdAt))}
+                    <tr key={entry.id} className="border-b border-hairline align-baseline">
+                      <td className="py-2.5 pr-3 font-mono text-xs whitespace-nowrap tabular-nums text-ink-muted">
+                        {formatDateTime(entry.createdAt)}
                       </td>
-                      <td className="px-4 py-2.5 font-mono text-slate-700">
-                        {entry.actorEmail}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono font-semibold text-slate-800">
-                          {entry.action}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 font-mono text-slate-600">
+                      <td className="px-3 py-2.5 font-mono text-xs whitespace-nowrap">{entry.actorEmail}</td>
+                      <td className="px-3 py-2.5 font-mono text-xs">{entry.action}</td>
+                      <td className="px-3 py-2.5 font-mono text-xs text-ink-muted">
                         {entry.entityType}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-700">
-                        {entry.reason ?? "—"}
-                      </td>
+                      <td className="py-2.5 pl-3">{entry.reason ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>
