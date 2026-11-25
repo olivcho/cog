@@ -12,6 +12,17 @@ const BADGE_STYLES: Record<string, string> = {
   escalated: "bg-purple-50 text-purple-700 border-purple-200",
 };
 
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "UTC",
+  timeZoneName: "short",
+});
+
+const EMPTY_VALUE = <span className="text-slate-400">—</span>;
+
 function formatStatusLabel(raw: string): string {
   return raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -24,7 +35,7 @@ export function FieldValue({
   value: unknown;
 }): ReactNode {
   if (value === null || value === undefined || value === "") {
-    return <span className="text-slate-400">—</span>;
+    return EMPTY_VALUE;
   }
 
   switch (field.type) {
@@ -46,12 +57,7 @@ export function FieldValue({
       if (Number.isNaN(d.getTime())) return <span>{String(value)}</span>;
       return (
         <time dateTime={d.toISOString()} className="tabular-nums text-slate-700">
-          {d.toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+          {DATE_FORMATTER.format(d)}
         </time>
       );
     }

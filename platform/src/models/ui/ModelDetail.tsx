@@ -2,6 +2,15 @@ import type { ReactNode } from "react";
 import type { FieldDef, ModelDefinition } from "../registry";
 import { FieldValue } from "./FieldValue";
 
+const AUDIT_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "UTC",
+  timeZoneName: "short",
+});
+
 export interface AuditEntryView {
   id: string;
   actorEmail: string;
@@ -107,12 +116,7 @@ export function ModelDetail({
                       dateTime={ts.toISOString()}
                       className="text-xs tabular-nums text-slate-500"
                     >
-                      {ts.toLocaleString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {AUDIT_DATE_FORMATTER.format(ts)}
                     </time>
                   </li>
                 );
