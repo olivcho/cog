@@ -13,7 +13,7 @@ export const kycCaseModel =
     searchableFields: ["caseNumber", "customerName", "customerEmail", "country"],
     editableFields: ["summary", "status", "assigneeId"],
     fields: [
-      { key: "caseNumber", label: "Case #", type: "string", sortable: true },
+      { key: "caseNumber", label: "Case", type: "string", sortable: true },
       { key: "customerName", label: "Customer", type: "string", sortable: true },
       { key: "customerEmail", label: "Email", type: "email", detailOnly: true },
       { key: "country", label: "Country", type: "string", filterable: true },
@@ -25,7 +25,7 @@ export const kycCaseModel =
       },
       {
         key: "riskScore",
-        label: "Risk Score",
+        label: "Risk score",
         type: "risk_score",
         sortable: true,
       },

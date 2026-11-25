@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ModelTable } from "@internal/platform/models/ui";
-import { Button, Meta, Tag } from "@internal/platform/ui";
+import {
+  Button,
+  Meta,
+  Tag,
+  TagButton,
+  selectClass,
+} from "@internal/platform/ui";
 import type { SessionUser } from "@internal/platform/types";
 import { kycCaseModel } from "@/lib/kyc-model";
 import { CaseDetailPanel } from "./CaseDetailPanel";
@@ -39,6 +45,23 @@ interface AuditEntry {
   reason: string | null;
   createdAt: string;
 }
+
+const STATUS_FILTERS = [
+  ["all", "All"],
+  ["open", "Open"],
+  ["in_review", "In review"],
+  ["pending_second_approval", "2nd sign-off"],
+  ["escalated", "Escalated"],
+  ["approved", "Approved"],
+  ["rejected", "Rejected"],
+] as const;
+
+const RISK_FILTERS = [
+  ["all", "Any risk"],
+  ["high", "High"],
+  ["medium", "Medium"],
+  ["low", "Low"],
+] as const;
 
 const UTC_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -239,149 +262,149 @@ export function KycWorkspace({
             onMutated={() => void loadCases()}
           />
         ) : (
-          <div className="space-y-5">
-            {/* KPI Strip */}
-            {stats ? (
-              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-                  <div className="text-xs font-medium text-slate-500">
-                    Open / In Review
-                  </div>
-                  <div className="mt-1 text-2xl font-bold tabular-nums text-slate-900">
-                    {stats.open}
-                  </div>
-                </div>
-                <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 shadow-xs">
-                  <div className="text-xs font-medium text-amber-800">
-                    Pending 2nd Sign-Off
-                  </div>
-                  <div className="mt-1 text-2xl font-bold tabular-nums text-amber-900">
-                    {stats.pendingSecondApproval}
-                  </div>
-                </div>
-                <div className="rounded-xl border border-red-200 bg-red-50/40 p-4 shadow-xs">
-                  <div className="text-xs font-medium text-red-700">
-                    High-Risk Active (&gt;=70)
-                  </div>
-                  <div className="mt-1 text-2xl font-bold tabular-nums text-red-700">
-                    {stats.highRiskActive}
-                  </div>
-                </div>
-                <div className="rounded-xl border border-red-200 bg-white p-4 shadow-xs">
-                  <div className="text-xs font-medium text-slate-500">
-                    SLA Breached
-                  </div>
-                  <div className="mt-1 text-2xl font-bold tabular-nums text-red-600">
-                    {stats.slaBreached}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {/* Filters */}
-            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search case #, customer, email, country..."
-                className="min-w-[220px] flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-900 focus:border-slate-900 focus:outline-none"
-              />
-              <select
-                aria-label="Filter by status"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800"
-              >
-                <option value="all">All Statuses</option>
-                <option value="open">Open</option>
-                <option value="in_review">In Review</option>
-                <option value="pending_second_approval">
-                  Pending 2nd Approval
-                </option>
-                <option value="escalated">Escalated</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
-              <select
-                aria-label="Filter by risk tier"
-                value={riskFilter}
-                onChange={(e) => setRiskFilter(e.target.value)}
-                className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800"
-              >
-                <option value="all">All Risk Tiers</option>
-                <option value="high">High (&gt;=70)</option>
-                <option value="medium">Medium (40–69)</option>
-                <option value="low">Low (&lt;40)</option>
-              </select>
-              <select
-                aria-label="Filter by assignee"
-                value={assigneeFilter}
-                onChange={(e) => setAssigneeFilter(e.target.value)}
-                className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800"
-              >
-                <option value="all">All Assignees</option>
-                <option value="me">Assigned to Me</option>
-                <option value="unassigned">Unassigned</option>
-              </select>
-              <select
-                aria-label="Filter by SLA"
-                value={slaFilter}
-                onChange={(e) => setSlaFilter(e.target.value)}
-                className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800"
-              >
-                <option value="all">All SLAs</option>
-                <option value="breached">Breached</option>
-                <option value="urgent">Urgent (&lt;4h)</option>
-              </select>
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-baseline justify-between gap-4">
+              <h1 className="text-2xl tracking-[-0.02em]">Review queue</h1>
+              <Meta>
+                {cases.length} {cases.length === 1 ? "case" : "cases"}
+              </Meta>
             </div>
 
-            {/* Platform ModelTable */}
-            {loading && cases.length === 0 ? (
-              <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
-                Loading KYC queue...
+            {stats ? (
+              <dl className="flex flex-wrap gap-x-10 gap-y-2 border-y border-hairline py-3 text-[13px]">
+                {(
+                  [
+                    ["Open", stats.open, false],
+                    ["Awaiting second sign-off", stats.pendingSecondApproval, false],
+                    ["High risk", stats.highRiskActive, false],
+                    ["SLA breached", stats.slaBreached, stats.slaBreached > 0],
+                  ] as const
+                ).map(([label, value, alert]) => (
+                  <div key={label} className="flex items-baseline gap-2">
+                    <dt className="text-ink-muted">{label}</dt>
+                    <dd
+                      className={`font-mono tabular-nums ${alert ? "text-danger" : "text-ink"}`}
+                    >
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <div
+                role="group"
+                aria-label="Filter by status"
+                className="flex flex-wrap items-center gap-0.5"
+              >
+                {STATUS_FILTERS.map(([value, label]) => (
+                  <TagButton
+                    key={value}
+                    selected={statusFilter === value}
+                    onClick={() => setStatusFilter(value)}
+                  >
+                    {label}
+                  </TagButton>
+                ))}
               </div>
+              <span aria-hidden className="h-4 w-px bg-hairline-strong" />
+              <div
+                role="group"
+                aria-label="Filter by risk tier"
+                className="flex flex-wrap items-center gap-0.5"
+              >
+                {RISK_FILTERS.map(([value, label]) => (
+                  <TagButton
+                    key={value}
+                    selected={riskFilter === value}
+                    onClick={() => setRiskFilter(value)}
+                  >
+                    {label}
+                  </TagButton>
+                ))}
+              </div>
+
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                <input
+                  type="search"
+                  aria-label="Search cases"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search"
+                  className={`${selectClass} w-56 placeholder:text-ink-faint`}
+                />
+                <select
+                  aria-label="Filter by assignee"
+                  value={assigneeFilter}
+                  onChange={(e) => setAssigneeFilter(e.target.value)}
+                  className={selectClass}
+                >
+                  <option value="all">Any assignee</option>
+                  <option value="me">Assigned to me</option>
+                  <option value="unassigned">Unassigned</option>
+                </select>
+                <select
+                  aria-label="Filter by SLA"
+                  value={slaFilter}
+                  onChange={(e) => setSlaFilter(e.target.value)}
+                  className={selectClass}
+                >
+                  <option value="all">Any SLA</option>
+                  <option value="breached">Breached</option>
+                  <option value="urgent">Due in 4h</option>
+                </select>
+              </div>
+            </div>
+
+            {loading && cases.length === 0 ? (
+              <p className="border-y border-hairline py-12 text-center text-[13px] text-ink-muted">
+                Loading queue…
+              </p>
             ) : (
               <ModelTable
                 model={kycCaseModel}
                 columns={columns}
                 items={cases}
+                showIndex
+                emptyMessage="No cases match these filters."
                 onRowClick={(record) => setSelectedCaseId(String(record.id))}
                 renderCell={(field, value, record) => {
+                  const row = record as QueueCase;
                   if (field.key === "caseNumber") {
-                    const hits = (record as QueueCase)._count.sanctionsMatches;
+                    const hits = row._count.sanctionsMatches;
                     return (
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-semibold text-slate-900">
-                          {String(value)}
-                        </span>
+                      <span className="inline-flex items-baseline gap-2">
+                        <span className="font-mono text-xs">{String(value)}</span>
                         {hits > 0 ? (
-                          <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 border border-red-200">
-                            {hits} hit{hits > 1 ? "s" : ""}
-                          </span>
+                          <Tag tone="danger">
+                            {hits} {hits > 1 ? "hits" : "hit"}
+                          </Tag>
                         ) : null}
-                      </div>
+                      </span>
                     );
+                  }
+                  if (field.key === "customerName") {
+                    return (
+                      <span className="inline-flex items-baseline gap-2">
+                        <span>{String(value)}</span>
+                        <Meta>{row.customerEmail}</Meta>
+                      </span>
+                    );
+                  }
+                  if (field.key === "country") {
+                    return <span className="font-mono text-xs">{String(value)}</span>;
+                  }
+                  if (field.key === "assigneeName" && value === "Unassigned") {
+                    return <span className="text-ink-faint">Unassigned</span>;
                   }
                   if (field.key === "slaDueAt") {
                     return (
-                      <SlaBadge
-                        slaDueAt={String(value)}
-                        status={String(record.status)}
-                      />
+                      <SlaBadge slaDueAt={String(value)} status={row.status} />
                     );
                   }
                   return undefined;
                 }}
-                renderRowAction={(record) => (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCaseId(String(record.id))}
-                    className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    Inspect →
-                  </button>
-                )}
               />
             )}
           </div>
