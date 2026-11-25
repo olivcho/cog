@@ -87,6 +87,37 @@ async function fetchBeforeSnapshot(
   }
 }
 
+function stripIncludedRelations(value: unknown, args: unknown): unknown {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    !args ||
+    typeof args !== "object" ||
+    !("include" in args)
+  ) {
+    return value;
+  }
+
+  const include = (args as { include?: Record<string, unknown> }).include;
+  if (!include || typeof include !== "object") return value;
+
+  const includedKeys = new Set(
+    Object.entries(include)
+      .filter(([, enabled]) => Boolean(enabled))
+      .map(([key]) => key),
+  );
+  if (includedKeys.size === 0) return value;
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (!includedKeys.has(k)) {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
 export function createAuditedPrismaClient(baseClient: PrismaClient) {
   return baseClient.$extends({
     name: "platform-auto-audit",
@@ -113,7 +144,10 @@ export function createAuditedPrismaClient(baseClient: PrismaClient) {
                 : null;
 
             const result = await query(args);
-            const after = operation === "delete" ? null : result;
+            const after =
+              operation === "delete"
+                ? null
+                : stripIncludedRelations(result, args);
             const entityId = extractEntityId(after ?? before);
             const resolvedOp =
               operation === "upsert"

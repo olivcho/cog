@@ -193,6 +193,25 @@ describe("platform generic two-person approvals state machine", () => {
     expect(step2.request.status).toBe("approved");
     expect(step2.request.steps).toHaveLength(2);
 
+    // Verify ApprovalRequest before/after audit snapshots compare scalar fields consistently.
+    const reqTrail = await getEntityAuditTrail(
+      basePrisma,
+      "ApprovalRequest",
+      req.id,
+    );
+    const secondSignOffAudit = reqTrail.find(
+      (entry) =>
+        entry.beforeJson &&
+        JSON.parse(entry.beforeJson).status === "pending_second_approval",
+    );
+    expect(secondSignOffAudit).toBeDefined();
+    expect(JSON.parse(secondSignOffAudit?.afterJson ?? "{}").status).toBe(
+      "approved",
+    );
+    expect(
+      JSON.parse(secondSignOffAudit?.afterJson ?? "{}").steps,
+    ).toBeUndefined();
+
     // Finalized request rejects further decisions with 409.
     await expect(
       submitApprovalDecision(auditedPrisma, senior, {
